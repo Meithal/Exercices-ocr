@@ -105,11 +105,13 @@ class Jeu:
                 with open(SAVE_FILE) as f:
                     try:
                         nom, place = f.read().split("\n")
+                        print(next(_ for _ in Jeu.cartes if _.nom == nom).nom)
 
-                        Jeu.co = Jeu.cartes[nom]
-                        Jeu.co.position_joueur = place
+                        Jeu.co = next(_ for _ in Jeu.cartes if _.nom == nom)
+                        Jeu.co.position_joueur = int(place)
                     except (IndexError, ValueError):
                         print("Un problème est survenu en essayant de charger votre sauvegarde")
+                        os.unlink(SAVE_FILE)
                         Jeu.co = None
         if Jeu.co is None:
             print("Veuillez choisir une carte")
