@@ -105,8 +105,7 @@ class Jeu:
                 with open(SAVE_FILE) as f:
                     try:
                         nom, place = f.read().split("\n")
-                        print(next(_ for _ in Jeu.cartes if _.nom == nom).nom)
-
+                        
                         Jeu.co = next(_ for _ in Jeu.cartes if _.nom == nom)
                         Jeu.co.position_joueur = int(place)
                     except (IndexError, ValueError):
@@ -119,11 +118,9 @@ class Jeu:
                 print("[{}] {}".format(_ + 1, c.nom.replace('.txt', '')))
 
             try:
-                selected_carte = Jeu.cartes[int(input()) - 1]
-            except ValueError:
-                selected_carte = Jeu.cartes[0]
-
-            Jeu.co = selected_carte
+                Jeu.co = Jeu.cartes[int(input()) - 1]
+            except (ValueError, IndexError):
+                Jeu.co = Jeu.cartes[0]
 
         Jeu.co.affiche()
         while Jeu.execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n> ")):
