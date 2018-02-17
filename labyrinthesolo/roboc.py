@@ -2,7 +2,6 @@
 # Pour Openclass rooms
 
 import os
-import collections
 
 SAVE_FILE = 'cur.txt'   # ce fichier sera utilisé pour sauvegarder la partie
 LEGAL_CHARS = ' O.XU'   # rajouter des caractères ici pour enrichir le jeu
@@ -12,6 +11,7 @@ CARACTERE_JOUEUR = 'X'  # caractere qu'on recherche pour determiner la position 
 
 VALID_INPUT_CHARS = 'QNSEO23456789'
 LONGUEUR_MAX_INPUT = 100
+
 
 class Labyrinthe:
     def __init__(self, texte, nom):
@@ -30,26 +30,25 @@ class Labyrinthe:
 
         self.position_joueur = self.position_initiale
 
-
     def affiche(self):
         for (i, c) in enumerate(self.flux):
             if i == self.position_joueur:
-                print(CARACTERE_JOUEUR, end = '')
+                print(CARACTERE_JOUEUR, end='')
             else:
-                print (c, end = '')
+                print(c, end='')
             if not (i + 1) % self.longueur_colonne:
                 print()
         print()
-
 
     def save(self):
         with open(SAVE_FILE, 'w') as f:
             f.write(self.nom + "\n" + str(self.position_joueur))
 
+
 class Jeu:
 
     co = None
-    cartes = collections.OrderedDict
+    cartes = []
 
     @staticmethod
     def execute_input(i):
@@ -99,7 +98,7 @@ class Jeu:
     def commencer():
         for f in os.listdir('cartes'):
             with open('cartes/' + f) as carte:
-                Jeu.cartes[f.replace('.txt', '')] = Labyrinthe(carte.read(), f)
+                Jeu.cartes.append(Labyrinthe(carte.read(), f))
 
         if SAVE_FILE in os.listdir('.'):
             if input("Voulez-vous continuer la partie en cours ? (O/N)\n> ").strip().upper() == 'O':
@@ -115,12 +114,12 @@ class Jeu:
         if Jeu.co is None:
             print("Veuillez choisir une carte")
             for _, c in enumerate(Jeu.cartes):
-                print("[{}] {}".format(_ + 1, c))
+                print("[{}] {}".format(_ + 1, c.nom.replace('.txt', '')))
 
             try:
-                selected_carte = Jeu.cartes.values()[int(input()) - 1]
+                selected_carte = Jeu.cartes[int(input()) - 1]
             except ValueError:
-                selected_carte = Jeu.cartes.keys()[0]
+                selected_carte = Jeu.cartes[0]
 
             Jeu.co = selected_carte
 
