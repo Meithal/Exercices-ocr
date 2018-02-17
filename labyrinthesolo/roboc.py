@@ -1,50 +1,39 @@
 # executer avec "py -3 .\roboc.py"
 # Pour Openclass rooms
 
-import os, re
+import os
+import collections
 
-SAVE_FILE = 'cur.txt'  # ce fichier sera utilisé pour sauvegarder la partie
-LEGAL_CHARS = ' O.XU'  # rajouter des caractères ici pour enrichir le jeu
-BLOCKING_CHARS = 'O'   # rajouter des caractères dans cette chaine pour creer des bloqueurs
-VICTORY_CHARS = 'U'    # les caractères de cette chaine font gagner
-CARACTERE_JOUEUR = 'X' # ce caractère sera affiché à la position du joueur et recherché pour déterminer sa position initiale
+SAVE_FILE = 'cur.txt'   # ce fichier sera utilis� pour sauvegarder la partie
+LEGAL_CHARS = ' O.XU'   # rajouter des caract�res ici pour enrichir le jeu
+BLOCKING_CHARS = 'O'    # rajouter des caract�res dans cette chaine pour creer des bloqueurs
+VICTORY_CHARS = 'U'     # les caract�res de cette chaine font gagner
+CARACTERE_JOUEUR = 'X'  # caractere qu'on recherche pour determiner la position initiale et comme 'sprite'
 
 VALID_INPUT_CHARS = 'QNSEO23456789'
 LONGUEUR_MAX_INPUT = 100
 
-class Carte:
-    def __init__(self, texte, nom, place_joueur = -1):
-        """
-        Calcule la longueur d'une colonne (par rapport au premier saut de ligne rencontré),
-        Enlève tous les sauts de ligne et les caractères illégaux,
-        Definit éventuellement les coordonnées initiales du joueur.
-        Enlève la caractère qui correspond au joueur.
-        :param texte: contenu brut du fichier
-        :param nom: nom de la carte incluse dans la sauvegarde
-        :param place_joueur: si different de 0, force à celà l'emplacement du joueur
-        """
-        self.raw = texte
+class Labyrinthe:
+    def __init__(self, texte, nom):
+
+        self.flux = texte
         self.nom = nom
-        self.longueur_colonne = len(self.raw.split("\n")[0].strip())
-        for l in self.raw:
+
+        self.longueur_colonne = len(self.flux.split("\n")[0].strip())
+
+        for l in self.flux:
             if l not in LEGAL_CHARS:
-                self.raw = self.raw.replace(l, '')
-        if place_joueur == -1:
-            self.place = self.raw.index(CARACTERE_JOUEUR)
-        else:
-            self.place = int(place_joueur)
-        self.raw = self.raw.replace(CARACTERE_JOUEUR, ' ')
+                self.flux = self.flux.replace(l, '')
+
+        self.position_initiale = self.flux.index(CARACTERE_JOUEUR)
+        self.flux = self.flux.replace(CARACTERE_JOUEUR, ' ')
+
+        self.position_joueur = self.position_initiale
 
 
     def affiche(self):
-        """
-        Rien d'exceptionnel sinon qu'on saute une ligne à
-        chaque fois qu'on affiche un nombre de caractères
-        équivalent à self.longueur_colonne
-        :return:
-        """
-        for (i, c) in enumerate(self.raw):
-            if i == self.place:
+        for (i, c) in enumerate(self.flux):
+            if i == self.position_joueur:
                 print(CARACTERE_JOUEUR, end = '')
             else:
                 print (c, end = '')
@@ -52,83 +41,93 @@ class Carte:
                 print()
         print()
 
+
     def save(self):
-        """
-        On sauvegarde juste le nom de la map et la position
-        Ce qui fait que quand on charge la carte on passera
-        cette position dans le constructeur.
-        :return:
-        """
         with open(SAVE_FILE, 'w') as f:
-            f.write(self.nom + "\n" + str(self.place))
+            f.write(self.nom + "\n" + str(self.position_joueur))
 
-def execute_input(i):
+class Jeu:
 
-    # on filtre l'entrée
-    i = i.strip().upper()
-    i = i[:LONGUEUR_MAX_INPUT]
-    for c in i:
-        if c not in VALID_INPUT_CHARS:
-            i = i.replace(c, '')
-    if i == 'Q':
-        return False
-    if not i or i[0] not in 'NSEO':
+    co = None
+    cartes = collections.OrderedDict
+
+    @staticmethod
+    def execute_input(i):
+        """
+        Cette procedure modifie l'�tat du jeu apr�s avoir filtr� son input
+        :param i: L'input g�n�r� par le joueur
+        :return: Si on retourne True, on demande un autre input au joueur, si on retourne False, le jeu s'�teint
+        """
+        i = i.strip().upper()
+        i = i[:LONGUEUR_MAX_INPUT]
+        for c in i:
+            if c not in VALID_INPUT_CHARS:
+                i = i.replace(c, '')
+        if i == 'Q':
+            return False
+        if not i or i[0] not in 'NSEO':
+            return True
+
+        coord = i[0]  # N, S, E ou O
+        combien_de_fois = 1
+        if len(i) == 2 and i[1] in '23456789':
+            combien_de_fois = int(i[1])
+
+        for _ in range(combien_de_fois):
+            destinations = {
+                'N': Jeu.co.position_joueur - Jeu.co.longueur_colonne,
+                'S': Jeu.co.position_joueur + Jeu.co.longueur_colonne,
+                'E': Jeu.co.position_joueur + 1,
+                'O': Jeu.co.position_joueur - 1
+            }
+            if destinations[coord] < 0 or destinations[coord] > len(Jeu.co.flux):
+                return True
+            if Jeu.co.flux[destinations[coord]] in BLOCKING_CHARS:
+                return True
+            elif Jeu.co.flux[destinations[coord]] in VICTORY_CHARS:
+                print("Vous avez gagn� !")
+                os.unlink(SAVE_FILE)
+                return False
+            else:
+                Jeu.co.position_joueur = destinations[coord]
+                if _ < combien_de_fois - 1:
+                    Jeu.co.affiche()
+                Jeu.co.save()
         return True
 
-    # on recupère la direction et le nombre de fois qu'on veut se déplacer
-    # depuis l'entrée filtrée
-    dir = i[0]
-    combien_de_fois = 1
-    if len(i) == 2 and i[1] in '23456789':
-        combien_de_fois = int(i[1])
+    @staticmethod
+    def commencer():
+        for f in os.listdir('cartes'):
+            with open('cartes/' + f) as carte:
+                Jeu.cartes[f.replace('.txt', '')] = Labyrinthe(carte.read(), f)
 
-    # on teste la validité du déplacement, si il est correct, on l'exécute
-    for _ in range(combien_de_fois):
-        dests = {
-            'N': co.place - co.longueur_colonne,
-            'S': co.place + co.longueur_colonne,
-            'E': co.place + 1,
-            'O': co.place - 1
-        }
-        if dests[dir] < 0 or dests[dir] > len(co.raw):
-            return True
-        if co.raw[dests[dir]] in BLOCKING_CHARS:
-            return True
-        elif co.raw[dests[dir]] in VICTORY_CHARS:
-            print("Vous avez gagné !")
-            os.unlink(SAVE_FILE)
-            return False
-        else:
-            co.place = dests[dir]
-            if _ < combien_de_fois - 1:
-                co.affiche()
-            co.save()
-    return True
+        if SAVE_FILE in os.listdir('.'):
+            if input("Voulez-vous continuer la partie en cours ? (O/N)\n> ").strip().upper() == 'O':
+                with open(SAVE_FILE) as f:
+                    try:
+                        nom, place = f.read().split("\n")
 
+                        Jeu.co = Jeu.cartes[nom]
+                        Jeu.co.position_joueur = place
+                    except (IndexError, ValueError):
+                        print("Un probl�me est survenu en essayant de charger votre sauvegarde")
+                        Jeu.co = None
+        if Jeu.co is None:
+            print("Veuillez choisir une carte")
+            for _, c in enumerate(Jeu.cartes):
+                print("[{}] {}".format(_ + 1, c))
 
-co = None
-cartes = []
-
-if SAVE_FILE in os.listdir('.'):
-    if input("Voulez-vous continuer la partie en cours ? (O/N)\n> ").strip().upper() == 'O':
-        with open(SAVE_FILE) as f:
             try:
-                nom, place = f.read().split("\n")
-                co = Carte(open('cartes/' + nom).read(), nom, place)
-            except:
-                co = None
-if co is None:
-    print("Veuillez choisir une carte")
-    i = 0
-    for f in os.listdir('cartes'):
-        with open('cartes/' + f) as carte:
-            cartes.append(Carte(carte.read(), f))
-        print("[{}] {}".format(i + 1, f[:-4]))
-        i += 1
+                selected_carte = Jeu.cartes.values()[int(input()) - 1]
+            except ValueError:
+                selected_carte = Jeu.cartes.keys()[0]
 
-    selected_carte = min(max(int(re.sub(r"\D", "0", input("") or '1')), 1), i)
-    co = cartes[selected_carte - 1]
+            Jeu.co = selected_carte
 
-co.affiche()
-while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n> ")):
-    co.affiche()
+        Jeu.co.affiche()
+        while Jeu.execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n> ")):
+            Jeu.co.affiche()
+
+
+if __name__ == "__main__":
+    Jeu.commencer()
