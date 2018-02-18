@@ -2,6 +2,7 @@
 # Pour Openclass rooms
 
 import os
+import abc
 
 SAVE_FILE = 'cur.txt'   # ce fichier sera utilisé pour sauvegarder la partie
 LEGAL_CHARS = ' O.XU'   # rajouter des caractères ici pour enrichir le jeu
@@ -13,9 +14,38 @@ VALID_INPUT_CHARS = 'QNSEO23456789'
 LONGUEUR_MAX_INPUT = 100
 
 
+class DriverAffichage:
+
+    @staticmethod
+    @abc.abstractmethod
+    def afficher(flux, longueur_colonne, position_joueur):
+        """
+        :param flux: un flux de caractères à afficher
+        :param longueur_colonne: sauter une ligne a chaque fois
+        qu'on a affiché ce nombre de caractères
+        :param position_joueur: afficher le joueur à cette position
+        :return: rien
+        """
+        pass
+
+
+class AffichageASCII(DriverAffichage):
+    """Ce driver affiche le jeu en mode ASCII"""
+    @staticmethod
+    def afficher(flux, longueur_colonne, position_joueur):
+        for (i, c) in enumerate(flux):
+            if i == position_joueur:
+                print(CARACTERE_JOUEUR, end='')
+            else:
+                print(c, end='')
+            if not (i + 1) % longueur_colonne:
+                print()
+        print()
+
+
 class Jeu:
 
-    afficher = None
+    driver_affichage = None
     cartes = []
     labyrinthe = None
 
@@ -41,6 +71,14 @@ class Jeu:
         def save(self):
             with open(SAVE_FILE, 'w') as f:
                 f.write(self.nom + "\n" + str(self.position_joueur))
+
+    @staticmethod
+    def afficher():
+        Jeu.driver_affichage.afficher(
+            Jeu.labyrinthe.flux,
+            Jeu.labyrinthe.longueur_colonne,
+            Jeu.labyrinthe.position_joueur
+        )
 
     @staticmethod
     def execute_input(i):
@@ -111,22 +149,8 @@ class Jeu:
             Jeu.afficher()
 
 
-class AffichageASCII:
-    """Ce driver affiche le jeu en mode ASCII"""
-    @staticmethod
-    def __call__():
-        for (i, c) in enumerate(Jeu.labyrinthe.flux):
-            if i == Jeu.labyrinthe.position_joueur:
-                print(CARACTERE_JOUEUR, end='')
-            else:
-                print(c, end='')
-            if not (i + 1) % Jeu.labyrinthe.longueur_colonne:
-                print()
-        print()
-
-
 if __name__ == "__main__":
-    Jeu.afficher = AffichageASCII()
+    Jeu.driver_affichage = AffichageASCII()
     Jeu.charger_cartes()
     if not len(Jeu.cartes):
         print("Aucune carte trouvée.")
