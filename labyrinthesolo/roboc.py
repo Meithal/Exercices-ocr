@@ -1,18 +1,10 @@
-# -*- coding: utf-8 -*-
-
 # Execute with "py -3 .\roboc.py"
 # For OpenClass rooms
 
 import os
 
-SAVE_FILE = 'cur.txt'   # File that will be created for save the game
-LEGAL_CHARS = ' O.XU'   # Characters absent from that string will be filtered out
-BLOCKING_CHARS = 'O'    # Characters present in this string will block the path of the player
-VICTORY_CHARS = 'U'     # Stepping on a character on this string triggers a win
-PLAYER_CHAR = 'X'       # Character looked for to set initial position of player and as a sprite
-
-VALID_INPUT_CHARS = 'QNSEO23456789'
-MAX_LEN_INPUT = 100
+import settings
+import languages
 
 
 class ASCIIDisplay:
@@ -21,12 +13,16 @@ class ASCIIDisplay:
     def draw(stream, column_length, player_index):
         for (i, c) in enumerate(stream):
             if i == player_index:
-                print(PLAYER_CHAR, end='')
+                print(settings.PLAYER_CHAR, end='')
             else:
                 print(c, end='')
             if not (i + 1) % column_length:
                 print(end="\n")
         print(end="\n")
+
+    @staticmethod
+    def send_notification(text):
+        print(text)
 
 
 class Game:
@@ -34,11 +30,6 @@ class Game:
     display_driver = None
     levels = []
     _currently_playing = -1
-
-    @classmethod
-    def level(cls):
-        if not cls._currently_playing == -1:
-            return cls.levels[cls._currently_playing]
 
     class Labyrinth:
         def __init__(self, stream, name):
@@ -49,19 +40,19 @@ class Game:
 
             ob = ""
             for _ in self.stream:
-                if _ in LEGAL_CHARS:
+                if _ in settings.LEGAL_CHARS:
                     ob += _
             self.stream = ob
 
-            self.initial_player_position = self.stream.index(PLAYER_CHAR)
+            self.initial_player_position = self.stream.index(settings.PLAYER_CHAR)
 
-            self.stream = self.stream.replace(PLAYER_CHAR, ' ')
+            self.stream = self.stream.replace(settings.PLAYER_CHAR, ' ')
 
             self.player_position = self.initial_player_position
 
         def save(self):
             level_index = [_.name for _ in Game.levels].index(self.name)
-            with open(SAVE_FILE, 'w') as f:
+            with open(settings.SAVE_FILE, 'w') as f:
                 f.write(str(level_index) + "\n" + str(self.player_position))
 
     @staticmethod
@@ -73,36 +64,41 @@ class Game:
         )
 
     @classmethod
+    def notification(cls, text):
+        Game.display_driver.send_notification(text)
+
+    @classmethod
     def execute_input(cls, i):
         """
-        This procedure changed the state of the game depending of the input.
+        This procedure changes the state of the game depending of the input.
         :param i: the input string that the player provided.
         :return: Boolean, if we return True, we ask an other input to the player, if False, the game stops.
         """
-        i = i[:MAX_LEN_INPUT].strip().upper()
+        i = i[:settings.MAX_LEN_INPUT].strip().upper()
         if not i:
             return True
-        if i == 'Q':
+        if i == _t.LEAVE:
             return False
 
+        direction = i[0]
         how_many_repeats = 1
         if len(i) == 2 and i[1] in '23456789':
             how_many_repeats = int(i[1])
 
         for _ in range(how_many_repeats):
             destination = {
-                'N': Game.level().player_position - Game.level().column_length,
-                'S': Game.level().player_position + Game.level().column_length,
-                'E': Game.level().player_position + 1,
-                'O': Game.level().player_position - 1
-            }.get(i[0], Game.level().player_position)
+                _t.NORTH: Game.level().player_position - Game.level().column_length,
+                _t.SOUTH: Game.level().player_position + Game.level().column_length,
+                _t.EAST: Game.level().player_position + 1,
+                _t.WEST: Game.level().player_position - 1
+            }.get(direction, Game.level().player_position)
             if destination < 0 or destination > len(Game.level().stream):
                 return True
-            if Game.level().stream[destination] in BLOCKING_CHARS:
+            if Game.level().stream[destination] in settings.BLOCKING_CHARS:
                 return True
-            elif Game.level().stream[destination] in VICTORY_CHARS:
-                print("Vous avez gagné !")
-                os.unlink(SAVE_FILE)
+            elif Game.level().stream[destination] in settings.VICTORY_CHARS:
+                Game.notification(_t.YOU_WIN)
+                os.unlink(settings.SAVE_FILE)
                 return False
             else:
                 Game.level().player_position = destination
@@ -124,41 +120,54 @@ class Game:
             level_index = 0
         cls._currently_playing = level_index
 
+    @classmethod
+    def level(cls):
+        if not cls._currently_playing == -1:
+            return cls.levels[cls._currently_playing]
+
     @staticmethod
     def saved_game_data(file):
         with open(file) as _:
             level_index, place = _.read().split("\n")
-        return level_index, place
+        return int(level_index), int(place)
+
+    @staticmethod
+    def set_language(code):
+        languages.set_language(code)
 
     @staticmethod
     def start():
         Game.draw()
-        while Game.execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n> ")):
+        while Game.execute_input(input(_t.GAME_INPUT_PROMPT)):
             Game.draw()
 
 
 def main():
-    Game.display_driver = ASCIIDisplay()
+    """Hide some variable declarations from global scope here"""
+    Game.display_driver = globals()[settings.DISPLAY_DRIVER]()
     Game.levels = list(Game.load_levels())
     if not len(Game.levels):
-        print("Aucune carte trouvée.")
+        Game.notification(_t.NO_MAP_FOUND)
         exit()
-    if SAVE_FILE in os.listdir('.'):
-        if input("Voulez-vous continuer la partie en cours ? (O/N)\n> ").strip().upper() == 'O':
-            level_index, position = Game.saved_game_data(SAVE_FILE)
+
+    if settings.SAVE_FILE in os.listdir('.'):
+        if input(_t.CONTINUE_GAME).strip().upper() == _t.YES_SHORT:
+            level_index, position = Game.saved_game_data(settings.SAVE_FILE)
             Game.set_level(level_index)
             Game.level().player_position = position
         else:
-            os.unlink(SAVE_FILE)
+            os.unlink(settings.SAVE_FILE)
 
     if not Game.level():
-        print("Veuillez choisir une carte")
+        Game.notification(_t.CHOOSE_MAP)
         for i, _ in enumerate(Game.levels):
-            print("[{}] {}".format(i + 1, _.name.replace('.txt', '')))
+            Game.notification("[{}] {}".format(i + 1, _.name.replace('.txt', '')))
         Game.set_level(int(input()) - 1)
 
     Game.start()
 
 
 if __name__ == "__main__":
+    Game.set_language(settings.LANGUAGE)
+    from languages import translate as _t  # 't' is for 'translate', make it global, not local to main()
     main()
