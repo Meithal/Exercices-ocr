@@ -1,94 +1,97 @@
-# executer avec "py -3 .\roboc.py"
-# Pour Openclass rooms
+# -*- coding: utf-8 -*-
+
+# Execute with "py -3 .\roboc.py"
+# For OpenClass rooms
 
 import os
 import abc
 
-SAVE_FILE = 'cur.txt'   # ce fichier sera utilisé pour sauvegarder la partie
-LEGAL_CHARS = ' O.XU'   # rajouter des caractères ici pour enrichir le jeu
-BLOCKING_CHARS = 'O'    # rajouter des caractères dans cette chaine pour creer des bloqueurs
-VICTORY_CHARS = 'U'     # les caractères de cette chaine font gagner
-CARACTERE_JOUEUR = 'X'  # caractere qu'on recherche pour determiner la position initiale et comme 'sprite'
+SAVE_FILE = 'cur.txt'   # File that will be created for save the game
+LEGAL_CHARS = ' O.XU'   # Characters absent from that string will be filtered out
+BLOCKING_CHARS = 'O'    # Characters present in this string will block the path of the player
+VICTORY_CHARS = 'U'     # Stepping on a character on this string triggers a win
+PLAYER_CHAR = 'X'       # Character looked for to set initial position of player and as a sprite
 
 VALID_INPUT_CHARS = 'QNSEO23456789'
-LONGUEUR_MAX_INPUT = 100
+MAX_LEN_INPUT = 100
 
 
-class DriverAffichage:
+class DisplayDriver:
 
     @staticmethod
     @abc.abstractmethod
-    def afficher(flux, longueur_colonne, position_joueur):
+    def draw(stream, break_line_when, player_index):
         """
-        :param flux: un flux de caractères à afficher
-        :param longueur_colonne: sauter une ligne a chaque fois
-        qu'on a affiché ce nombre de caractères
-        :param position_joueur: afficher le joueur à cette position
+        :param stream: un flux de caractÃ¨res Ã  afficher
+        :param break_line_when: sauter une ligne a chaque fois
+        qu'on a affichÃ© ce nombre de caractÃ¨res
+        :param player_index: afficher le joueur Ã  cette position
         :return: rien
         """
         pass
 
 
-class AffichageASCII(DriverAffichage):
-    """Ce driver affiche le jeu en mode ASCII"""
+class ASCIIDisplay(DisplayDriver):
+    """An ASCII display driver for the game"""
     @staticmethod
-    def afficher(flux, longueur_colonne, position_joueur):
-        for (i, c) in enumerate(flux):
-            if i == position_joueur:
-                print(CARACTERE_JOUEUR, end='')
+    def draw(stream, column_length, player_index):
+        for (i, c) in enumerate(stream):
+            if i == player_index:
+                print(PLAYER_CHAR, end='')
             else:
                 print(c, end='')
-            if not (i + 1) % longueur_colonne:
+            if not (i + 1) % column_length:
                 print()
         print()
 
 
-class Jeu:
+class Game:
 
-    driver_affichage = None
-    cartes = []
-    labyrinthe = None
+    display_driver = None
+    levels = []
+    current_map = None
 
-    class Labyrinthe:
-        def __init__(self, texte, nom):
+    class Labyrinth:
+        def __init__(self, stream, nom):
 
-            self.id = len(Jeu.cartes)
+            self.id = len(Game.levels)
 
-            self.flux = texte
+            self.steam = stream
             self.nom = nom
 
-            self.longueur_colonne = len(self.flux.split("\n")[0].strip())
+            self.column_length = len(self.steam.split("\n")[0].strip())
 
-            for l in self.flux:
+            for l in self.steam:
                 if l not in LEGAL_CHARS:
-                    self.flux = self.flux.replace(l, '')
+                    self.steam = self.steam.replace(l, '')
 
-            self.position_initiale = self.flux.index(CARACTERE_JOUEUR)
-            self.flux = self.flux.replace(CARACTERE_JOUEUR, ' ')
+            self.initial_player_position = self.steam.index(PLAYER_CHAR)
 
-            self.position_joueur = self.position_initiale
+            self.steam = self.steam.replace(PLAYER_CHAR, ' ')
+
+            self.player_position = self.initial_player_position
 
         def save(self):
             with open(SAVE_FILE, 'w') as f:
-                f.write(self.nom + "\n" + str(self.position_joueur))
+                f.write(self.nom + "\n" + str(self.player_position))
 
     @staticmethod
-    def afficher():
-        Jeu.driver_affichage.afficher(
-            Jeu.labyrinthe.flux,
-            Jeu.labyrinthe.longueur_colonne,
-            Jeu.labyrinthe.position_joueur
+    def draw():
+        Game.display_driver.draw(
+            Game.current_map.stream,
+            Game.current_map.column_length,
+            Game.current_map.player_position
         )
 
     @staticmethod
     def execute_input(i):
         """
-        Cette procedure modifie l'état du jeu après avoir filtré son input
-        :param i: L'input généré par le joueur
-        :return: Si on retourne True, on demande un autre input au joueur, si on retourne False, le jeu s'éteint
+        This procedure changed the state of the game depending of the input.
+        :param i: the characters stream that the player provided.
+        :return: Boolean, if we return True, we ask an other input to the player, if False, the game stops.
         """
         i = i.strip().upper()
-        i = i[:LONGUEUR_MAX_INPUT]
+        i = i[:MAX_LEN_INPUT]
         for c in i:
             if c not in VALID_INPUT_CHARS:
                 i = i.replace(c, '')
@@ -98,73 +101,74 @@ class Jeu:
             return True
 
         coord = i[0]  # N, S, E ou O
-        combien_de_fois = 1
+        how_many_repeats = 1
         if len(i) == 2 and i[1] in '23456789':
-            combien_de_fois = int(i[1])
+            how_many_repeats = int(i[1])
 
-        for _ in range(combien_de_fois):
+        for _ in range(how_many_repeats):
             destinations = {
-                'N': Jeu.labyrinthe.position_joueur - Jeu.labyrinthe.longueur_colonne,
-                'S': Jeu.labyrinthe.position_joueur + Jeu.labyrinthe.longueur_colonne,
-                'E': Jeu.labyrinthe.position_joueur + 1,
-                'O': Jeu.labyrinthe.position_joueur - 1
+                'N': Game.current_map.player_position - Game.current_map.column_length,
+                'S': Game.current_map.player_position + Game.current_map.column_length,
+                'E': Game.current_map.player_position + 1,
+                'O': Game.current_map.player_position - 1
             }
-            if destinations[coord] < 0 or destinations[coord] > len(Jeu.labyrinthe.flux):
+            if destinations[coord] < 0 or destinations[coord] > len(Game.current_map.stream):
                 return True
-            if Jeu.labyrinthe.flux[destinations[coord]] in BLOCKING_CHARS:
+            if Game.current_map.flux[destinations[coord]] in BLOCKING_CHARS:
                 return True
-            elif Jeu.labyrinthe.flux[destinations[coord]] in VICTORY_CHARS:
-                print("Vous avez gagné !")
+            elif Game.current_map.flux[destinations[coord]] in VICTORY_CHARS:
+                print("Vous avez gagnÃ© !")
                 os.unlink(SAVE_FILE)
                 return False
             else:
-                Jeu.labyrinthe.position_joueur = destinations[coord]
-                if _ < combien_de_fois - 1:
-                    Jeu.afficher()
-                Jeu.labyrinthe.save()
+                Game.current_map.player_position = destinations[coord]
+                if _ < how_many_repeats - 1:
+                    Game.draw()
+                Game.current_map.save()
         return True
 
     @staticmethod
-    def charger_cartes():
-        for f in os.listdir('cartes'):
-            with open('cartes/' + f) as carte:
-                Jeu.cartes.append(Jeu.Labyrinthe(carte.read(), f))
+    def load_levels():
+        """Instantiate every map into the game, so we can switch maps in the future, and pick one to play"""
+        for f in os.listdir('maps'):
+            with open('maps/' + f) as _:
+                Game.levels.append(Game.Labyrinth(_.read(), f))
 
     @staticmethod
-    def charger_sauvegarde(fichier):
-        with open(fichier) as f:
+    def load_saved_game(file):
+        with open(file) as _:
             try:
-                nom, place = f.read().split("\n")
-                Jeu.labyrinthe = next(_ for _ in Jeu.cartes if _.nom == nom)
-                Jeu.labyrinthe.position_joueur = int(place)
+                name, place = _.read().split("\n")
+                Game.current_map = next(_ for _ in Game.levels if _.nom == name)
+                Game.current_map.player_position = int(place)
             except (IndexError, ValueError):
-                print("Un problème est survenu en essayant de charger votre sauvegarde.")
-                os.unlink(fichier)
-                Jeu.labyrinthe = None
+                print("Un problÃ¨me est survenu en essayant de charger votre sauvegarde.")
+                os.unlink(file)
+                Game.current_map = None
 
     @staticmethod
-    def commencer():
-        Jeu.afficher()
-        while Jeu.execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n> ")):
-            Jeu.afficher()
+    def start():
+        Game.draw()
+        while Game.execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n> ")):
+            Game.draw()
 
 
 if __name__ == "__main__":
-    Jeu.driver_affichage = AffichageASCII()
-    Jeu.charger_cartes()
-    if not len(Jeu.cartes):
-        print("Aucune carte trouvée.")
+    Game.display_driver = ASCIIDisplay()
+    Game.load_levels()
+    if not len(Game.levels):
+        print("Aucune carte trouvÃ©e.")
         exit()
     if SAVE_FILE in os.listdir('.'):
         if input("Voulez-vous continuer la partie en cours ? (O/N)\n> ").strip().upper() == 'O':
-            Jeu.charger_sauvegarde(SAVE_FILE)
-    if Jeu.labyrinthe is None:
+            Game.load_saved_game(SAVE_FILE)
+    if Game.current_map is None:
         print("Veuillez choisir une carte")
-        for _ in Jeu.cartes:
+        for _ in Game.levels:
             print("[{}] {}".format(_.id + 1, _.nom.replace('.txt', '')))
         try:
-            Jeu.labyrinthe = Jeu.cartes[int(input()) - 1]
+            Game.current_map = Game.levels[int(input()) - 1]
         except (ValueError, IndexError):
-            Jeu.labyrinthe = Jeu.cartes[0]
+            Game.current_map = Game.levels[0]
 
-    Jeu.commencer()
+    Game.start()
