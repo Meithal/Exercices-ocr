@@ -38,5 +38,5 @@ class Emplacement:
         return False
 
     # retourne notre position sur la carte lorsqu'on nous appelle comme fonction
-    def __call__(self):
+    def coordonnee(self):
         return self.emplacement
