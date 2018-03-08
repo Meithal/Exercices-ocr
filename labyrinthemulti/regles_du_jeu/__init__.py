@@ -1,42 +1,55 @@
-SAVE_FILE = 'cur.txt'
-BLOCKING_CHARS = 'O'  # on peut rajouter des caractères ici pour ajouter des bloqueurs
-VICTORY_CHARS = 'U'
-CARACTERE_JOUEUR = 'X'
+SAVE_FILE = 'cur.txt'  # le nom du fichier de sauvegarde
+BLOCKING_CHARS = 'O'  # tous les caracteres de cette chaine bloqueront la progression du joueur
+VICTORY_CHARS = 'U'  # marcher sur un des caracteres presents dans cette chaine fait gagner la partie
+CARACTERE_JOUEUR = 'X'  # ce caractere sera recherche dans le flux de la carte pour determiner
+                        # la position initiale du joueur, il sera affiché comme sprite du joueur
 LONGUEUR_MAX_INPUT = 100
 
-# la carte sur laquelle on va tester nos règles, il faut l'initialiser à la main dans le constructeur de la carte
+# la carte de jeu, alias
 carte = None
 
 
 class Emplacement:
+    """
+    Cette classe caracterise un emplacement au sein d'une carte
+    """
 
-    def __init__(self, emplacement):
+    def __init__(self, index_):
         """
-        Un emplacement dans la flux de la carte
-        :param emplacement: l'index numérique de cet emplacement, par rapport au flux
+        Comme la carte est un flux d'octets continu, on trouve sa ligne et colone par une division de la taille d'une ligne
+        :param index_: l'index numerique entier de cet emplacement, par rapport au flux
         """
-        self.emplacement = emplacement
+        self.index_ = index_
+        self.ligne, self.colonne = divmod(index_, carte.taille_ligne)
 
-    def est_valide(self):  # le joueur peut-il se trouver ici?
+    def est_valide(self, depuis = None):
+        """
+        Verifie si cet emplacement est valide
+        :param depuis: si cet emplacement est atteignable depuis celui la
+        :return: True ou False
+        """
         if self.oob():
             return False
         if self.bloque():
             return False
+        if depuis:
+            if abs(self.colonne != depuis.colonne): # deplacement horizontal
+                if self.ligne != depuis.ligne: # qui nous teleporte sur une autre ligne
+                    return False # retourne False
         return True
 
-    def oob(self):  # cet emplacement est en dehors de la carte
-        return self.emplacement < 0 or self.emplacement > len(carte.flux)
+    def oob(self):
+        """Cet emplacement n'est pas dans la limite de la carte"""
+        return self.index_ < 0 or self.index_ > len(carte.flux)
 
-    def bloque(self):  # cet emplacement est compris dans les caratcères bloquants
-        if carte.flux[self.emplacement] in BLOCKING_CHARS:
+    def bloque(self):
+        """Cet emplacement contient un caractère bloquant"""
+        if carte.flux[self.index_] in BLOCKING_CHARS:
             return True
         return False
 
-    def fait_gagner(self):  # cet emplacement fait gagner
-        if carte.flux[self.emplacement] in VICTORY_CHARS:
+    def fait_gagner(self):
+        """Cet emplacement contient un caractère qui fait gagner"""
+        if carte.flux[self.index_] in VICTORY_CHARS:
             return True
         return False
-
-    # retourne notre position sur la carte lorsqu'on nous appelle comme fonction
-    def coordonnee(self):
-        return self.emplacement

@@ -22,11 +22,9 @@ class Carte:
         self.nom = nom
         self.taille_ligne = len(self.flux.split("\n")[0].strip())
         self.flux = self.flux.replace('\n', '').replace('\r', '')
-        self.place_joueur = regles.Emplacement(self.flux.index(regles.CARACTERE_JOUEUR))
+        self.place_joueur = self.flux.index(regles.CARACTERE_JOUEUR)
         self.flux = self.flux.replace(regles.CARACTERE_JOUEUR, ' ')
         regles.carte = self
-        if place_joueur >= 0:
-            self.place_joueur = regles.Emplacement(place_joueur)
 
     def affiche(self):
         """
@@ -34,7 +32,7 @@ class Carte:
         :return:
         """
         for (i, c) in enumerate(self.flux):
-            if i == self.place_joueur.coordonnee():
+            if i == self.place_joueur.index_:
                 print(regles.CARACTERE_JOUEUR, end = '')
             else:
                 print(c, end = '')
@@ -48,7 +46,7 @@ class Carte:
         :return:
         """
         with open(regles.SAVE_FILE, 'w') as f:
-            f.write(self.nom + "\n" + str(self.place_joueur.coordonnee()))
+            f.write(self.nom + "\n" + str(self.place_joueur.index_))
 
 
 def execute_input(i):
@@ -57,13 +55,17 @@ def execute_input(i):
     :param i: une chaine de caractères demandée par le joueur
     :return: True, le jeu continue, False, le jeu s'arrête
     """
+
     i = i[:regles.LONGUEUR_MAX_INPUT].strip().upper()
+
     if i == 'Q':
         return False
+
     if not i:
         return True
 
     direction = i[0]
+
     if direction not in 'NSEO':
         return True
 
@@ -74,16 +76,17 @@ def execute_input(i):
     for step in range(repetitions):  # on se déplace autant de fois que demandé
 
         destination = {
-            'N': co.place_joueur.coordonnee() - co.taille_ligne,
-            'S': co.place_joueur.coordonnee() + co.taille_ligne,
-            'E': co.place_joueur.coordonnee() + 1,
-            'O': co.place_joueur.coordonnee() - 1
+            'N': co.place_joueur.index_ - co.taille_ligne,
+            'S': co.place_joueur.index_ + co.taille_ligne,
+            'E': co.place_joueur.index_ + 1,
+            'O': co.place_joueur.index_ - 1
         }[direction]  # si la direction donnée n'est pas valide, la joueur reste sur place
 
         emplacement = regles.Emplacement(destination)
 
-        if not emplacement.est_valide():
-            return True  # si le déplacement n'est pas valide, on quitte la procédure ici
+        if not emplacement.est_valide(depuis=co.place_joueur):
+            return True  # si l'emplacement cible ne permet pas de s'y trouver, on quitte la procédure ici
+
 
         if emplacement.fait_gagner():
             print("Vous avez gagné !")
@@ -95,23 +98,25 @@ def execute_input(i):
         if step < repetitions - 1:
             co.affiche()  # on affiche les déplacements intermédiaires
 
-        co.save()
+        co.save()  # on sauvegarde toutes les étapes intermédiaires vu que cette boucle peut quitter à tout moment
     return True
 
 
 def main():
+    """Cette fonction sert juste à ne pas remplir l'espace de noms global avec des variables comme 'nom', 'place'..."""
     global co
     if regles.SAVE_FILE in os.listdir('.'):
         if input("Voulez-vous continuer la partie en cours ? (O/N)").strip().upper() == 'O':
             with open(regles.SAVE_FILE) as f:
                 nom, place = f.read().split("\n")
-                co = Carte(nom, int(place))
+                co = Carte(nom)
+                co.place_joueur = regles.Emplacement(int(place))
     if co is None:
         print("Veuillez choisir une carte")
-        i = 0
+        i = 1
         for f in os.listdir('cartes'):
             cartes.append(f)
-            print("[{}] {}".format(i + 1, f.replace('.txt', '')))
+            print("[{}] {}".format(i, f.replace('.txt', '')))
             i += 1
         while True:
             selected_carte = input("> ")
@@ -122,6 +127,7 @@ def main():
                 print("Ce n'est pas valide")
 
         co = Carte(cartes[selected_carte])
+        co.place_joueur = regles.Emplacement(co.place_joueur)  # convertit la place du joueur en un objet
         co.save()
 
     co.affiche()
