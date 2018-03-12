@@ -1,8 +1,5 @@
 .idea/
-<<<<<<< ec4df634cf9cea9ab5ec750e209d78fa848c12f6
 __pycache__/
-=======
 *.zip
 labyrinthesolo/save.txt
 *.pyc
->>>>>>> prog
