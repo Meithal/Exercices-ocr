@@ -1,53 +1,15 @@
 # Pour Openclass rooms
+# Commande : "py -3 .\roboc.py"
 
 import os
-import regles_du_jeu as regles
 
-cartes = []
-co = None  # l'objet carte où on va jouer
+import regles
+import regles.carte
+import regles.emplacement
 
-
-class Carte:
-    def __init__(self, nom, place_joueur = -1):
-        """
-        Charge la carte en mémoire
-        Calcule la longueur d'une ligne, enlève tous les saut des lignes pour avoir un flux d'octets continu.
-        Definit les coordonnées du joueur et les sauvegarde.
-        :param nom: nom de la carte qu'on utilisera dans le fichier de sauvegarde.
-        :param place_joueur: si supérieur à 0, force à celà l'emplacement du joueur, sinon
-        la position du joueur sera celle par défaut.
-        """
-        with open('cartes/' + nom) as texte:
-            self.flux = texte.read()
-        self.nom = nom
-        self.taille_ligne = len(self.flux.split("\n")[0].strip())
-        self.flux = self.flux.replace('\n', '').replace('\r', '')
-        self.place_joueur = self.flux.index(regles.CARACTERE_JOUEUR)
-        self.flux = self.flux.replace(regles.CARACTERE_JOUEUR, ' ')
-        regles.carte = self
-
-    def affiche(self):
-        """
-        Affiche la carte, saute une ligne quand on a affiché un nombre de caractères équivalent  une ligne
-        :return:
-        """
-        for (i, c) in enumerate(self.flux):
-            if i == self.place_joueur.index_:
-                print(regles.CARACTERE_JOUEUR, end = '')
-            else:
-                print(c, end = '')
-            if not (i + 1) % self.taille_ligne:
-                print(end='\n')
-        print(end='\n')
-
-    def save(self):
-        """
-        Sauvegarde la carte en cours, le nom de la carte, et l'emplcement du jouer sont sauvegardées
-        :return:
-        """
-        with open(regles.SAVE_FILE, 'w') as f:
-            f.write(self.nom + "\n" + str(self.place_joueur.index_))
-
+cartes = []  # une liste de nom de cartes
+carte = regles.carte.Carte()  # l'instance de Carte où on joue
+print("carte", id(carte))
 
 def execute_input(i):
     """
@@ -73,45 +35,43 @@ def execute_input(i):
     if len(i) == 2 and i[1] in '23456789':
         repetitions = int(i[1])
 
-    for step in range(repetitions):  # on se déplace autant de fois que demandé
+    for step in range(repetitions):  # on répete le deplacement autant de fois que demande
 
         destination = {
-            'N': co.place_joueur.index_ - co.taille_ligne,
-            'S': co.place_joueur.index_ + co.taille_ligne,
-            'E': co.place_joueur.index_ + 1,
-            'O': co.place_joueur.index_ - 1
-        }[direction]  # si la direction donnée n'est pas valide, la joueur reste sur place
+            'N': carte.place_joueur.index_ - carte.taille_ligne,
+            'S': carte.place_joueur.index_ + carte.taille_ligne,
+            'E': carte.place_joueur.index_ + 1,
+            'O': carte.place_joueur.index_ - 1
+        }[direction]  # en fonction de la direction demandée, la destination sera differente
 
-        emplacement = regles.Emplacement(destination)
+        cible = regles.emplacement.Emplacement(destination, carte.taille_ligne)
 
-        if not emplacement.est_valide(depuis=co.place_joueur):
+        if not cible.est_valide(depuis=carte.place_joueur):
             return True  # si l'emplacement cible ne permet pas de s'y trouver, on quitte la procédure ici
 
-
-        if emplacement.fait_gagner():
+        if cible.fait_gagner():
             print("Vous avez gagné !")
             os.unlink(regles.SAVE_FILE)
             return False
 
-        co.place_joueur = emplacement  # on deplace le joueur si on arrive jusqu'ici
+        carte.place_joueur = cible  # l'état du jeu est modifié ici
 
         if step < repetitions - 1:
-            co.affiche()  # on affiche les déplacements intermédiaires
+            carte.affiche()  # on affiche les déplacements intermédiaires
 
-        co.save()  # on sauvegarde toutes les étapes intermédiaires vu que cette boucle peut quitter à tout moment
+        carte.save()  # on sauvegarde chaque déplacement
     return True
 
 
 def main():
-    """Cette fonction sert juste à ne pas remplir l'espace de noms global avec des variables comme 'nom', 'place'..."""
-    global co
+    """Cette fonction sert à ne pas remplir l'espace de noms global avec des variables"""
     if regles.SAVE_FILE in os.listdir('.'):
         if input("Voulez-vous continuer la partie en cours ? (O/N)").strip().upper() == 'O':
             with open(regles.SAVE_FILE) as f:
                 nom, place = f.read().split("\n")
-                co = Carte(nom)
-                co.place_joueur = regles.Emplacement(int(place))
-    if co is None:
+                carte.load_level(nom, int(place))
+
+    if not carte.loaded:
         print("Veuillez choisir une carte")
         i = 1
         for f in os.listdir('cartes'):
@@ -126,13 +86,12 @@ def main():
             else:
                 print("Ce n'est pas valide")
 
-        co = Carte(cartes[selected_carte])
-        co.place_joueur = regles.Emplacement(co.place_joueur)  # convertit la place du joueur en un objet
-        co.save()
+        carte.load_level(cartes[selected_carte])
+        carte.save()
 
-    co.affiche()
+    carte.affiche()
     while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
-        co.affiche()
+        carte.affiche()
 
     print("Merci d'avoir joué")
 
