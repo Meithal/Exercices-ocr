@@ -1,5 +1,6 @@
 import jeu
 
+
 class Carte:
     """
     L'aire de jeu.
@@ -11,15 +12,15 @@ class Carte:
         """Des valeurs fausses pour éviter les warnings de l'éditeur"""
         self.loaded = False
         self.flux = ""
-        self.place_joueur = jeu.emplacement.Emplacement(-1, 1)
+        self.position_par_defaut = jeu.emplacement.Emplacement(-1, 1)
 
-    def affiche(self):
+    def affiche_serveur(self):
         """
         Affiche la carte, saute une ligne quand on a affiché un nombre de caractères équivalent  une ligne
         :return:
         """
         for (i, c) in enumerate(self.flux):
-            if i == self.place_joueur.index_:
+            if i == self.position_par_defaut.index_:
                 print(jeu.reglages.CARACTERE_JOUEUR, end='')
             else:
                 print(c, end='')
@@ -27,17 +28,7 @@ class Carte:
                 print(end='\n')
         print(end='\n')
 
-    def save(self):
-        """
-        Sauvegarde la carte en cours, le nom de la carte, et l'emplacement du jouer sont sauvegardées
-        et séparées par une ligne.
-        :return:
-        """
-        with open(jeu.reglages.SAVE_FILE, 'w') as f:
-            f.write(self.nom + "\n" + str(self.place_joueur.index_))
-
-
-    def load_level(self, nom, place_joueur = -1):
+    def load_level(self, nom):
         """Charge la carte donnée depuis un nom de fichier, positionne le joueur.
 
         Calcule la longueur d'une ligne, enlève tous les saut des lignes pour avoir un flux d'octets continu.
@@ -53,12 +44,10 @@ class Carte:
         with open('cartes/' + nom) as texte:
             self.flux = texte.read()
         self.nom = nom
-        self.taille_ligne = len(self.flux.split("\n")[0].strip())
+        self.taille_ligne = len(self.flux.splitlines()[0].strip())
         self.flux = self.flux.replace('\n', '').replace('\r', '')
-        self.place_joueur = self.flux.index(jeu.reglages.CARACTERE_JOUEUR)
+        self.position_par_defaut = self.flux.index(jeu.reglages.CARACTERE_JOUEUR)
         self.flux = self.flux.replace(jeu.reglages.CARACTERE_JOUEUR, ' ')
-        if place_joueur >= 0:
-            self.place_joueur = place_joueur
-        self.place_joueur = jeu.emplacement.Emplacement(self.place_joueur, self.taille_ligne)
+        self.position_par_defaut = jeu.emplacement.Emplacement(self.position_par_defaut, self.taille_ligne)
 
         self.loaded = True

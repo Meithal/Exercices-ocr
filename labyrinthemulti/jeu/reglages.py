@@ -1,4 +1,7 @@
 SAVE_FILE = 'cur.txt'  # le nom du fichier de sauvegarde
+HOTE_CONNEXION = 'localhost'
+PORT_CONNEXION = 12800
+
 BLOCKING_CHARS = 'O'  # tous les caracteres de cette chaine bloqueront la progression du joueur
 VICTORY_CHARS = 'U'  # marcher sur un des caracteres presents dans cette chaine fait gagner la partie
 CARACTERE_JOUEUR = 'X'  # ce caractere sera recherche dans le flux de la carte pour determiner
