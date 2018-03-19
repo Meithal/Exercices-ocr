@@ -11,17 +11,36 @@ class Carte:
     def __init__(self):
         """Des valeurs fausses pour éviter les warnings de l'éditeur"""
         self.loaded = False
+        self.nom = ""
+        self.taille_ligne = -1
         self.flux = ""
         self.position_par_defaut = jeu.emplacement.Emplacement(-1, 1)
+        self.joueurs = []
+        self.partie_commencee = False
+
+    def ajoute_joueur(self, port):
+        if self.partie_commencee:
+            return False
+        print("On ajoute un joueur")
+        nouveau_joueur = jeu.joueur.Joueur(port)
+        if not nouveau_joueur.position:
+            print("Il n'y a plus assez de place pour ajouter un joueur sur cette carte")
+            return -1
+        else:
+            print("Joueur ajouté")
+            self.joueurs.append(nouveau_joueur)
+            return len(self.joueurs) - 1
 
     def affiche_serveur(self):
         """
         Affiche la carte, saute une ligne quand on a affiché un nombre de caractères équivalent  une ligne
         :return:
         """
+        idx_joueur = 1
         for (i, c) in enumerate(self.flux):
-            if i == self.position_par_defaut.index_:
-                print(jeu.reglages.CARACTERE_JOUEUR, end='')
+            if i in [joueur.position.index_ for joueur in self.joueurs]:
+                print(str(idx_joueur), end='')
+                idx_joueur += 1
             else:
                 print(c, end='')
             if (i + 1) % self.taille_ligne == 0:
@@ -45,9 +64,12 @@ class Carte:
             self.flux = texte.read()
         self.nom = nom
         self.taille_ligne = len(self.flux.splitlines()[0].strip())
-        self.flux = self.flux.replace('\n', '').replace('\r', '')
+        self.flux = self.flux.replace('\n', '').replace('\r', '').strip()
         self.position_par_defaut = self.flux.index(jeu.reglages.CARACTERE_JOUEUR)
         self.flux = self.flux.replace(jeu.reglages.CARACTERE_JOUEUR, ' ')
         self.position_par_defaut = jeu.emplacement.Emplacement(self.position_par_defaut, self.taille_ligne)
 
         self.loaded = True
+
+        self.joueurs.clear()
+        self.partie_commencee = False

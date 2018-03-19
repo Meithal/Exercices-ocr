@@ -1,11 +1,10 @@
 import os
-import asyncio
-import socket
-import select
 
 import jeu.carte_  # on utilise deja le nom 'carte' pour stocker l'instance de Carte
 import jeu.emplacement
+import jeu.joueur
 import jeu.reglages
+import jeu.reseau
 
 cartes = []  # une liste de nom de cartes
 carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
@@ -64,11 +63,6 @@ def execute_input(i):
 
 def serveur():
     """La boucle principale du jeu"""
-    def connexion_etablie():
-        print("un client est connecté")
-
-    def attente_de_connexion():
-        pass
 
     print("Veuillez choisir une carte")
     i = 1
@@ -88,72 +82,52 @@ def serveur():
 
     carte.affiche_serveur()
 
-    connexion_principale = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connexion_principale.bind(('', jeu.reglages.PORT_CONNEXION))
-    connexion_principale.listen(5)
-    print("Le serveur écoute sur le port {}".format(jeu.reglages.PORT_CONNEXION))
-
-
-    serveur_lance = True
-    clients_connectes = []
-
-    while serveur_lance:
-
-        connexions_demandees, wlist, xlist = select.select([connexion_principale], [], [], 0.05)
-
-        for connexion in connexions_demandees:
-            connexion_avec_client, infos_connexion = connexion.accept()
-            print("Client connecté", infos_connexion)
-            clients_connectes.append(connexion_avec_client)
-
-        clients_a_lire = []
-        try:
-            clients_a_lire, wlist, xlist = select.select(clients_connectes, [], [], 0.05)
-        except select.error as e:
-            # print("Probleme avec client", e)
-            pass
-        else:
-            for client in clients_a_lire:
-                msg_recu = client.recv(1024)
-                msg_recu = msg_recu.decode()
-                print("Recu {}".format(msg_recu))
-                client.send(b"Recu 5/5")
+    with jeu.reseau.ConnexionServeur('', jeu.reglages.PORT_CONNEXION, "Connexion principale") as connexion_principale:
+        while connexion_principale.traite_requetes():
+            for cli in connexion_principale.clients_a_lire()[0]:
+                msg_recu = cli.recv(1024).decode()
+                print("Recu {} depuis {}".format(msg_recu, connexion_principale.clients_connectes[cli]))
+                cli.send(b"Recu 5/5")
+                if msg_recu == "bonjour":
+                    if carte.ajoute_joueur(connexion_principale.clients_connectes[cli]["port"]) >= 0:
+                        cli.send(b"Bienvenue dans le jeu")
+                    else:
+                        cli.send(b"Nous n'avons pas reussi a vous placer dans le jeu, vous pouvez reessayer.")
+                        connexion_principale.clients_connectes[cli].close()
                 if msg_recu == "fin":
-                    serveur_lance = False
+                    raise jeu.reseau.ConnexionServeur.ArretServeur
+                carte.affiche_serveur()
 
-    print("Fermeture de connexion")
-    for client in clients_connectes:
-        client.close()
 
-    connexion_principale.close()
-
-    loop = asyncio.get_event_loop()
-    future = asyncio.Future()
-    asyncio.ensure_future(attente_de_connexion)
-    future.add_done_callback(connexion_etablie)
-    try:
-        loop.run_forever()
-    finally:
-        loop.stop()
-
-    while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
-        carte.affiche_serveur()
+    # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
+    #     carte.affiche_serveur()
 
     print("Merci d'avoir joué")
 
+
 def client():
-    connexion_avec_serveur = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connexion_avec_serveur.connect((jeu.reglages.HOTE_CONNEXION, jeu.reglages.PORT_CONNEXION))
-    print("Connexion établie avec le serveur sur le port {}".format(jeu.reglages.PORT_CONNEXION))
+    import jeu.client_
+    jeu.client_.afficheur("Foo")
+    jeu.client_.afficheur("Bar")
 
-    msg_a_envoyer = b""
-    while msg_a_envoyer != b"fin":
-        msg_a_envoyer = input("> ")
+    with jeu.reseau.ConnexionClient(
+            jeu.reglages.HOTE_CONNEXION,
+            jeu.reglages.PORT_CONNEXION,
+            "Connection client sortante.") as connexion_avec_serveur:
 
-        msg_a_envoyer = msg_a_envoyer.encode()
-        connexion_avec_serveur.send(msg_a_envoyer)
-        msg_recu = connexion_avec_serveur.recv(1024)
-        print(msg_recu.decode())
+        print("Connexion établie avec le serveur sur le port {}".format(jeu.reglages.PORT_CONNEXION))
 
-    print("Fermeture de la connexion.")
-    connexion_avec_serveur.close()
+        jeu.client_.envoyeur = jeu.client_.Envoyeur(connexion_avec_serveur)
+        jeu.client_.envoyeur.start()
+
+        connexion_avec_serveur.socket.send(b"bonjour")
+
+        msg_a_envoyer = b""
+        while msg_a_envoyer != b"fin":
+            msg_a_envoyer = input("> ")
+
+            msg_a_envoyer = msg_a_envoyer.encode()
+            connexion_avec_serveur.socket.send(msg_a_envoyer)
+            msg_recu = connexion_avec_serveur.socket.recv(1024)
+            print(msg_recu.decode())
+

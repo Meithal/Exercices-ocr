@@ -27,6 +27,8 @@ class Emplacement:
             return False
         if self.bloque():
             return False
+        if self.index_ in [joueur.position.index_ for joueur in jeu.carte.joueurs]:
+            return False
         if depuis:
             if abs(self.colonne != depuis.colonne):  # on demande un deplacement horizontal (colonne différente)
                 if self.ligne != depuis.ligne:  # mais on se retrouve au final sur une autre ligne...
@@ -48,5 +50,16 @@ class Emplacement:
         if jeu.carte.flux[self.index_] in jeu.reglages.VICTORY_CHARS:
             return True
         return False
+
+    def distance_vers_sortie(self):
+        plus_petite_distance = 0
+        for (i, c) in enumerate(jeu.carte.flux):
+            if c in jeu.reglages.VICTORY_CHARS:
+                emplacement_sortie = jeu.emplacement.Emplacement(i, jeu.carte.taille_ligne)
+                distance = abs(emplacement_sortie.colonne - self.colonne) + abs(emplacement_sortie.ligne - self.ligne)
+                if not plus_petite_distance or distance < plus_petite_distance:
+                    plus_petite_distance = distance
+        return plus_petite_distance
+
 
     # On peut rajouter d'autres fonctions ici comme "fait changer d'étage"
