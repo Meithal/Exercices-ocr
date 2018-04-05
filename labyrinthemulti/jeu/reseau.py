@@ -38,11 +38,11 @@ class ConnexionServeur(Connexion):
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is ConnexionServeur.ArretServeur:
+    def __exit__(self, type_exception, valeur_exception, traceback_exception):
+        if type_exception is ConnexionServeur.ArretServeur:
             print("Fermeture du serveur demandée")
         else:
-            print("Exception inhabituelle : %s" % exc_val)
+            print("Exception inhabituelle : %s" % valeur_exception)
 
         for cli in self.clients_connectes:
             cli.close()

@@ -11,5 +11,5 @@ class Joueur:
             index_ = random.randrange(len(jeu.carte.flux))
             emplacement = jeu.emplacement.Emplacement(index_, jeu.carte.taille_ligne)
             if emplacement.est_valide():
-                if emplacement.distance_vers_sortie() > 5:
+                if emplacement.distance_vers_sortie_plus_proche() > 5:
                     self.position = jeu.emplacement.Emplacement(index_, jeu.carte.taille_ligne)

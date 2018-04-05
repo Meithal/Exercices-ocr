@@ -51,7 +51,7 @@ class Emplacement:
             return True
         return False
 
-    def distance_vers_sortie(self):
+    def distance_vers_sortie_plus_proche(self):
         plus_petite_distance = 0
         for (i, c) in enumerate(jeu.carte.flux):
             if c in jeu.reglages.VICTORY_CHARS:

@@ -11,13 +11,15 @@ class Afficheur(threading.Thread):
         self.mot = mot
 
     def run(self):
-        with verrou:
-            sys.stdout.write(self.mot)
-            sys.stdout.flush()
+        while True:
+            with verrou:
+                sys.stdout.write(self.mot)
+                sys.stdout.flush()
 
     def __call__(self, *args, **kwargs):
         with verrou:
             print(*args)
+
 
 class Envoyeur(threading.Thread):
 
@@ -26,10 +28,11 @@ class Envoyeur(threading.Thread):
         self.connexion = connexion
 
     def run(self):
-        with verrou:
-            self.connexion.socket.send(b"Test connexion")
-            msg_recu = self.connexion.socket.recv(1024).decode()
-            print ("Test:", msg_recu)
+        while True:
+            with verrou:
+                self.connexion.socket.send(b"Test connexion")
+                msg_recu = self.connexion.socket.recv(1024).decode()
+                print ("Test:", msg_recu)
 
 afficheur = Afficheur("Coucou")
 afficheur.start()
