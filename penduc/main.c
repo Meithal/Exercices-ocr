@@ -51,11 +51,11 @@ int main() {
     return 0;
 }
 
-
 #include <stdio.h>
 #include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 
 char in_directory(char * dir_name, char * needle) {
@@ -85,11 +85,6 @@ struct dir_handler open_dir(char * path) {
 
 }
 
-/**
- * Return an array of filenames in the provided path
- * @param path
- * @return An array of filenames. The last element is a NULL character
- */
 char ** listdir(char * path) {
     DIR *dp = opendir(path);
     struct dirent *ep;
@@ -112,41 +107,75 @@ short free_array_of_char(char **array) {
     char ** cursor = array;
 }
 
-/**
- * Split a string by newlines and return an array
- * @param string
- * @return
- */
-char ** list_words(char * string) {
-    char ** returned_array = NULL;
+char ** string_into_arrays(char * chaine) {
 
-    for(char * c = string; *c != '\0'; c++) {
-        
+    int nombre_de_mots = 0;
+    for (char *lettre = chaine; *lettre != '\0'; lettre++)
+        if (*lettre == '\n')
+            nombre_de_mots += 1;
+
+    char ** array_mots = malloc((size_t) nombre_de_mots * sizeof(char *) + 1);
+    memset(array_mots, 0, (size_t) nombre_de_mots * sizeof(char *) + 1);
+    for(
+        char * debut = chaine, ** mot = (array_mots - 1), position_lettre = 0;
+        *chaine != '\0' ;
+        chaine++
+        )
+    {
+        if(chaine == debut || *chaine == '\n') {
+            mot ++;
+            mot = malloc(50);
+            memset(mot, 0, 50);
+            position_lettre = 0;
+        }
+
+        if(*chaine == '\r' || *chaine == '\n')
+            continue;
+        else {
+            mot[position_lettre++] = *chaine;
+        }
     }
-    returned_array = calloc((size_t) telldir(dp) + 1, sizeof(char*));
-    rewinddir(dp);
-    size_t i = 0;
-    while ((ep = readdir(dp))) {
-        returned_array[i] = malloc(strlen(ep->d_name) + 1);
-        strcpy(returned_array[i], ep->d_name);
-        i += 1;
-    }
-    return returned_array;
+
+    return array_mots;
 }
 
 int main() {
     printf("Hello, World!\n");
 
     if (!in_directory(".", "mots.txt")) {
-        puts("Fichier mots.txt manquant !");
+        puts("Fichier mots.txt manquant !\n");
         return EXIT_FAILURE;
     }
     else {
         FILE * fmots = fopen("mots.txt", "r");
+        if (fmots == NULL) {
+            puts("Probleme systeme lors de l'ouverture du fichier mots\n");
+            return EXIT_FAILURE;
+        }
+        fseek(fmots, 0L, SEEK_END);
+        size_t taille_fichier = (size_t) ftell(fmots);
+        rewind(fmots);
+        char* mots = malloc(taille_fichier);
+        fread(mots, sizeof(char), taille_fichier, fmots);
+        fclose(fmots);
+        fmots = NULL;
+
+//        printf(mots);
+
+        char ** arr_mots = string_into_arrays(mots);
+
+        srand((unsigned int) time(0));
+        int nombre_de_mots = 0;
+        for (; arr_mots[nombre_de_mots++] != NULL ; )
+            printf(arr_mots[nombre_de_mots]);
+        int nombre_choisi = rand() % nombre_de_mots;
+
+        printf("Nombre choisi: %d\n", nombre_choisi);
     }
-    char ** a = listdir(".");
-    for (char ** cursor = a; cursor != '\0'; cursor++) {
-        puts(*cursor);
-    }
-    free_array_of_char(a);
+
+//    char ** a = listdir(".");
+//    for (char ** cursor = a; cursor != '\0'; cursor++) {
+//        puts(*cursor);
+//    }
+//    free_array_of_char(a);
 }
