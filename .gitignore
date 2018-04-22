@@ -3,3 +3,4 @@ __pycache__/
 *.zip
 labyrinthesolo/save.txt
 *.pyc
+penduc/cmake-build-debug/

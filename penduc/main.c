@@ -1,60 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-
-int main() {
-    char lettreEntree;
-    char *motMystere = "rouge";
-    int coupsRestants = 10;
-    int gagne = 0;
-    char *caracteres_devines = malloc(sizeof(char));
-    *caracteres_devines = '\0';
-
-    printf("Bienvenue dans le jeu du pendu!\n");
-
-    do {
-
-        printf("Entrer une lettre (il vous reste %d coup%s)\n> ",
-               coupsRestants,
-               coupsRestants > 1 ? "s" : "");
-        scanf(" %c", &lettreEntree);
-
-        gagne = 1;
-        printf("\n");
-        for(char *c = motMystere; *c != '\0'; c++) {
-            if(*c == lettreEntree) {
-                if(!strchr(caracteres_devines, lettreEntree)) {
-                    size_t curlen = strlen(caracteres_devines);
-                    caracteres_devines = realloc(caracteres_devines, sizeof(char) * (curlen+1));
-                    caracteres_devines[curlen] = lettreEntree;
-                    caracteres_devines[curlen + 1] = '\0';
-                }
-                putchar(*c);
-            } else if (strchr(caracteres_devines, *c)) {
-                putchar(*c);
-            }
-            else {
-                gagne = 0;
-                putchar('_');
-            }
-        }
-        putchar('\n');
-        coupsRestants--;
-    } while(!gagne && coupsRestants);
-
-    if(gagne)
-        printf("Bravo, vous avez gagne.");
-    else {
-        printf("Vous n'avez plus de coups.");
-    }
-    free(caracteres_devines);
-    return 0;
-}
-
-#include <stdio.h>
 #include <dirent.h>
-#include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
 
@@ -73,17 +20,6 @@ char in_directory(char * dir_name, char * needle) {
     return found;
 }
 
-struct dir_handler {
-    DIR dir_object;
-    struct dirent dir_entity_object;
-    short (*in_directory)(struct dir_handler, char * , char *);
-    char ** (*directories)(struct dir_handler);
-    char ** (*files)(struct dir_handler);
-};
-
-struct dir_handler open_dir(char * path) {
-
-}
 
 char ** listdir(char * path) {
     DIR *dp = opendir(path);
@@ -104,74 +40,82 @@ char ** listdir(char * path) {
 }
 
 short free_array_of_char(char **array) {
-    char ** cursor = array;
+    int i;
+
+    i = 0;
+    while(array[i]) {
+        free(array[i++]);
+    }
+    free(array);
 }
 
-char ** string_into_arrays(char * chaine) {
+char ** string_into_arrays(char * string) {
 
-    int nombre_de_mots = 0;
-    for (char *lettre = chaine; *lettre != '\0'; lettre++)
-        if (*lettre == '\n')
-            nombre_de_mots += 1;
+    int nb_of_words = 0;
+    for (char *letter = string; *letter != '\0'; letter++)
+        if (*letter == '\n')
+            ++nb_of_words;
 
-    char ** array_mots = malloc((size_t) nombre_de_mots * sizeof(char *) + 1);
-    memset(array_mots, 0, (size_t) nombre_de_mots * sizeof(char *) + 1);
+    char ** array_words = calloc((size_t) nb_of_words + 2,  sizeof(char *));
+
     for(
-        char * debut = chaine, ** mot = (array_mots - 1), position_lettre = 0;
-        *chaine != '\0' ;
-        chaine++
+        char
+                * start             = string,
+                **word              = array_words - 1,
+                position_letter     = 0;
+        *string != '\0' ;
+        string++
         )
     {
-        if(chaine == debut || *chaine == '\n') {
-            mot ++;
-            mot = malloc(50);
-            memset(mot, 0, 50);
-            position_lettre = 0;
+        if(string == start || *string == '\n') {
+            word ++;
+            *word = malloc(50);
+            memset(*word, 0, 50);
+            position_letter = 0;
         }
 
-        if(*chaine == '\r' || *chaine == '\n')
+        if(*string == '\r' || *string == '\n')
             continue;
         else {
-            mot[position_lettre++] = *chaine;
+            (*word)[position_letter++] = *string;
         }
     }
 
-    return array_mots;
+    return array_words;
 }
 
 int main() {
     printf("Hello, World!\n");
 
-    if (!in_directory(".", "mots.txt")) {
-        puts("Fichier mots.txt manquant !\n");
+    if (!in_directory(".", "words.txt")) {
+        puts("Words.tct missing !\n");
         return EXIT_FAILURE;
     }
-    else {
-        FILE * fmots = fopen("mots.txt", "r");
-        if (fmots == NULL) {
-            puts("Probleme systeme lors de l'ouverture du fichier mots\n");
-            return EXIT_FAILURE;
-        }
-        fseek(fmots, 0L, SEEK_END);
-        size_t taille_fichier = (size_t) ftell(fmots);
-        rewind(fmots);
-        char* mots = malloc(taille_fichier);
-        fread(mots, sizeof(char), taille_fichier, fmots);
-        fclose(fmots);
-        fmots = NULL;
 
-//        printf(mots);
+    FILE * fwords = fopen("words.txt", "rb");
 
-        char ** arr_mots = string_into_arrays(mots);
-
-        srand((unsigned int) time(0));
-        int nombre_de_mots = 0;
-        for (; arr_mots[nombre_de_mots++] != NULL ; )
-            printf(arr_mots[nombre_de_mots]);
-        int nombre_choisi = rand() % nombre_de_mots;
-
-        printf("Nombre choisi: %d\n", nombre_choisi);
+    if (fwords == NULL) {
+        puts("System failure opening the word file\n");
+        return EXIT_FAILURE;
     }
+
+    fseek(fwords, 0L, SEEK_END);
+    size_t file_size = (size_t) ftell(fwords);
+    rewind(fwords);
+    char* words = malloc(file_size);
+    fread(words, sizeof(char), file_size, fwords);
+    fclose(fwords);
+    fwords = NULL;
+
+    char ** arr_words = string_into_arrays(words);
+
+    srand((unsigned int) time(0));
+    int number_of_words = 0;
+    while (arr_words[number_of_words] != NULL )
+        puts(arr_words[number_of_words++]);
+    int choosen_number = rand() % number_of_words;
+
+    printf("Chosen number: %d\n", choosen_number);
 
 //    char ** a = listdir(".");
 //    for (char ** cursor = a; cursor != '\0'; cursor++) {
