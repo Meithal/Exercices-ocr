@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <dirent.h>
-#include <time.h>
-
 
 char in_directory(char * dir_name, char * needle) {
     DIR * dir = opendir(dir_name);
@@ -20,33 +18,25 @@ char in_directory(char * dir_name, char * needle) {
     return found;
 }
 
+void file_into_string(char * fname, char * destination) {
+    FILE * fwords = fopen(fname, "rb");
 
-char ** listdir(char * path) {
-    DIR *dp = opendir(path);
-    struct dirent *ep;
-    char ** returned_array = NULL;
-    if (dp != NULL) {
-        while (readdir(dp));
-        returned_array = calloc((size_t) telldir(dp) + 1, sizeof(char*));
-        rewinddir(dp);
-        size_t i = 0;
-        while ((ep = readdir(dp))) {
-            returned_array[i] = malloc(strlen(ep->d_name) + 1);
-            strcpy(returned_array[i], ep->d_name);
-            i += 1;
-        }
+    if (fwords == NULL) {
+        puts("System failure opening the word file\n");
+        exit(EXIT_FAILURE);
     }
-    return returned_array;
+
+    fseek(fwords, 0L, SEEK_END);
+    size_t file_size = (size_t) ftell(fwords);
+    rewind(fwords);
+    destination = malloc(file_size);
+    fread(destination, sizeof(char), file_size, fwords);
+    fclose(fwords);
 }
 
-short free_array_of_char(char **array) {
-    int i;
-
-    i = 0;
-    while(array[i]) {
-        free(array[i++]);
-    }
-    free(array);
+void release_string(char * string) {
+    free(string);
+    *string = NULL;
 }
 
 char ** string_into_arrays(char * string) {
@@ -59,13 +49,13 @@ char ** string_into_arrays(char * string) {
     char ** array_words = calloc((size_t) nb_of_words + 2,  sizeof(char *));
 
     for(
-        char
-                * start             = string,
-                **word              = array_words - 1,
-                position_letter     = 0;
-        *string != '\0' ;
-        string++
-        )
+            char
+                    * start             = string,
+                    **word              = array_words - 1,
+                    position_letter     = 0;
+            *string != '\0' ;
+            string++
+            )
     {
         if(string == start || *string == '\n') {
             word ++;
@@ -85,41 +75,67 @@ char ** string_into_arrays(char * string) {
 }
 
 int main() {
-    printf("Hello, World!\n");
+    char lettreEntree;
+    int coupsRestants = 10;
+    int gagne = 0;
 
-    if (!in_directory(".", "words.txt")) {
-        puts("Words.tct missing !\n");
+    if (!in_directory(".", "mots.txt")) {
+        puts("mots.txt missing !\n");
         return EXIT_FAILURE;
     }
 
-    FILE * fwords = fopen("words.txt", "rb");
+    char * mots = NULL;
+    file_into_string("mots.txt", mots);
+    char ** arr_mots = string_into_arrays(mots);
+    release_string(mots);
 
-    if (fwords == NULL) {
-        puts("System failure opening the word file\n");
-        return EXIT_FAILURE;
+    int nombre_de_mots = 0;
+    while(arr_mots[nombre_de_mots] != '\0')
+        ++nombre_de_mots;
+
+    char * motMystere = arr_mots[rand() % nombre_de_mots];
+
+    puts(motMystere);
+
+    char *caracteres_devines = malloc(sizeof(char)); *caracteres_devines = '\0';
+
+    printf("Le jeu du pendu\n");
+
+    do {
+
+        printf("Entrer une lettre (il vous reste %d coup%s)\n> ",
+               coupsRestants,
+               coupsRestants > 1 ? "s" : "");
+        scanf(" %c", &lettreEntree);
+
+        gagne = 1;
+        printf("\n");
+        for(char *c = motMystere; *c != '\0'; c++) {
+            if(*c == lettreEntree) {
+                if(!strchr(caracteres_devines, lettreEntree)) {
+                    size_t curlen = strlen(caracteres_devines);
+                    caracteres_devines = realloc(caracteres_devines, sizeof(char) * (curlen+1));
+                    caracteres_devines[curlen] = lettreEntree;
+                    caracteres_devines[curlen + 1] = '\0';
+                }
+                putchar(*c);
+            } else if (strchr(caracteres_devines, *c)) {
+                putchar(*c);
+            }
+            else {
+                gagne = 0;
+                putchar('_');
+            }
+        }
+        putchar('\n');
+        --coupsRestants;
+    } while(!gagne && coupsRestants);
+
+    if(gagne)
+        printf("Bravo, vous avez gagne.");
+    else {
+        printf("Vous n'avez plus de coups.");
     }
-
-    fseek(fwords, 0L, SEEK_END);
-    size_t file_size = (size_t) ftell(fwords);
-    rewind(fwords);
-    char* words = malloc(file_size);
-    fread(words, sizeof(char), file_size, fwords);
-    fclose(fwords);
-    fwords = NULL;
-
-    char ** arr_words = string_into_arrays(words);
-
-    srand((unsigned int) time(0));
-    int number_of_words = 0;
-    while (arr_words[number_of_words] != NULL )
-        puts(arr_words[number_of_words++]);
-    int choosen_number = rand() % number_of_words;
-
-    printf("Chosen number: %d\n", choosen_number);
-
-//    char ** a = listdir(".");
-//    for (char ** cursor = a; cursor != '\0'; cursor++) {
-//        puts(*cursor);
-//    }
-//    free_array_of_char(a);
+    free(caracteres_devines);
+    return 0;
 }
