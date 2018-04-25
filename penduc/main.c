@@ -18,32 +18,11 @@ char in_directory(char * dir_name, char * needle) {
     return found;
 }
 
-void file_into_string(char * fname, char * destination) {
-    FILE * fwords = fopen(fname, "rb");
-
-    if (fwords == NULL) {
-        puts("System failure opening the word file\n");
-        exit(EXIT_FAILURE);
-    }
-
-    fseek(fwords, 0L, SEEK_END);
-    size_t file_size = (size_t) ftell(fwords);
-    rewind(fwords);
-    destination = malloc(file_size);
-    fread(destination, sizeof(char), file_size, fwords);
-    fclose(fwords);
-}
-
-void release_string(char * string) {
-    free(string);
-    *string = NULL;
-}
-
 char ** string_into_arrays(char * string) {
 
     int nb_of_words = 0;
-    for (char *letter = string; *letter != '\0'; letter++)
-        if (*letter == '\n')
+    for (char * letter = string; * letter != '\0'; letter++)
+        if (* letter == '\n')
             ++nb_of_words;
 
     char ** array_words = calloc((size_t) nb_of_words + 2,  sizeof(char *));
@@ -53,25 +32,62 @@ char ** string_into_arrays(char * string) {
                     * start             = string,
                     **word              = array_words - 1,
                     position_letter     = 0;
-            *string != '\0' ;
+            * (string + 1) != '\0' ;
             string++
             )
     {
         if(string == start || *string == '\n') {
             word ++;
-            *word = malloc(50);
-            memset(*word, 0, 50);
+            * word = malloc(50);
+            memset(* word, 0, 50);
             position_letter = 0;
         }
 
-        if(*string == '\r' || *string == '\n')
+        if(* string == '\r' || * string == '\n')
             continue;
         else {
-            (*word)[position_letter++] = *string;
+            (* word)[position_letter++] = * string;
         }
     }
 
     return array_words;
+}
+
+void release_string_into_arrays(char *** arr) {
+    int i = 0;
+
+    while((*arr)[i])
+        free((*arr)[i++]);
+    free(*arr);
+
+    * arr = NULL;
+}
+
+void file_into_string(char * fname, char ** destination) {
+    FILE * fwords = fopen(fname, "rb");
+
+    if (fwords == NULL) {
+        puts("System failure opening the word file\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(fwords, 0L, SEEK_END);
+    size_t file_size = (size_t) ftell(fwords);
+
+    if (file_size < 0) {
+        puts("Error finding the size of the file");
+        exit(EXIT_FAILURE);
+    }
+
+    rewind(fwords);
+    * destination = malloc(file_size);
+    fread(* destination, sizeof(char), file_size, fwords);
+    fclose(fwords);
+}
+
+void release_string(char * string) {
+    free(string);
+    *string = NULL;
 }
 
 int main() {
@@ -85,7 +101,7 @@ int main() {
     }
 
     char * mots = NULL;
-    file_into_string("mots.txt", mots);
+    file_into_string("mots.txt", &mots);
     char ** arr_mots = string_into_arrays(mots);
     release_string(mots);
 
@@ -95,7 +111,7 @@ int main() {
 
     char * motMystere = arr_mots[rand() % nombre_de_mots];
 
-    puts(motMystere);
+    release_string_into_arrays(&arr_mots);
 
     char *caracteres_devines = malloc(sizeof(char)); *caracteres_devines = '\0';
 
@@ -109,18 +125,20 @@ int main() {
         scanf(" %c", &lettreEntree);
 
         gagne = 1;
+        char lettre_trouvee = 0;
         printf("\n");
-        for(char *c = motMystere; *c != '\0'; c++) {
-            if(*c == lettreEntree) {
+        for(char * c = motMystere; * c != '\0'; c++) {
+            if(* c == lettreEntree) {
                 if(!strchr(caracteres_devines, lettreEntree)) {
                     size_t curlen = strlen(caracteres_devines);
                     caracteres_devines = realloc(caracteres_devines, sizeof(char) * (curlen+1));
                     caracteres_devines[curlen] = lettreEntree;
                     caracteres_devines[curlen + 1] = '\0';
+                    lettre_trouvee = 1;
                 }
-                putchar(*c);
-            } else if (strchr(caracteres_devines, *c)) {
-                putchar(*c);
+                putchar(* c);
+            } else if (strchr(caracteres_devines, * c)) {
+                putchar(* c);
             }
             else {
                 gagne = 0;
@@ -128,7 +146,9 @@ int main() {
             }
         }
         putchar('\n');
-        --coupsRestants;
+        if (!lettre_trouvee)
+            --coupsRestants;
+        lettre_trouvee = 0;
     } while(!gagne && coupsRestants);
 
     if(gagne)
