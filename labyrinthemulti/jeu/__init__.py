@@ -10,6 +10,11 @@ cartes = []  # une liste de nom de cartes
 carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
 
 
+SELECT_SOCKET_INPUT = 0
+SELECT_SOCKET_OUTPUT = 1
+SELECT_SOCKET_EXCEPT = 2
+
+
 def execute_input(i):
     """
     Modifie l'état du jeu en fonction de l'input demandé
@@ -56,7 +61,7 @@ def execute_input(i):
         carte.position_par_defaut = cible  # l'état du jeu est modifié ici
 
         if step < repetitions - 1:
-            carte.affiche_serveur()  # on affiche les déplacements intermédiaires
+            carte.afficher()  # on affiche les déplacements intermédiaires
 
     return True
 
@@ -80,23 +85,28 @@ def serveur():
 
     carte.load_level(cartes[selected_carte])
 
-    carte.affiche_serveur()
+    carte.afficher()
 
     with jeu.reseau.ConnexionServeur('', jeu.reglages.PORT_CONNEXION, "Connexion principale") as connexion_principale:
-        while connexion_principale.traite_requetes():
-            for cli in connexion_principale.clients_a_lire()[0]:
-                msg_recu = cli.recv(1024).decode()
-                print("Recu {} depuis {}".format(msg_recu, connexion_principale.clients_connectes[cli]))
-                cli.send(b"Recu 5/5")
+
+        while True:
+
+            if not carte.partie_commencee:
+                next(connexion_principale.requetes())
+
+            for client in connexion_principale.clients_a_lire()[SELECT_SOCKET_INPUT]:
+                msg_recu = client.recv(1024).decode()
+                print("Recu {!r} depuis {}".format(msg_recu, connexion_principale.clients_connectes[client]))
                 if msg_recu == "bonjour":
-                    if carte.ajoute_joueur(connexion_principale.clients_connectes[cli]["port"]) >= 0:
-                        cli.send(b"Bienvenue dans le jeu")
+                    if carte.ajoute_joueur(connexion_principale.clients_connectes[client]["port"]) >= 0:
+                        client.send(b"Bienvenue dans le jeu")
                     else:
-                        cli.send(b"Nous n'avons pas reussi a vous placer dans le jeu, vous pouvez reessayer.")
-                        connexion_principale.clients_connectes[cli].close()
+                        client.send(b"Nous n'avons pas reussi a vous placer dans le jeu, vous pouvez reessayer.")
+                        connexion_principale.clients_connectes[client].close()
                 if msg_recu == "fin":
                     raise jeu.reseau.ConnexionServeur.ArretServeur
-                carte.affiche_serveur()
+            if carte.partie_commencee:
+                carte.afficher()
 
 
     # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
@@ -106,9 +116,6 @@ def serveur():
 
 
 def client():
-    import jeu.client_
-    jeu.client_.afficheur("Foo")
-    jeu.client_.afficheur("Bar")
 
     with jeu.reseau.ConnexionClient(
             jeu.reglages.HOTE_CONNEXION,
@@ -117,9 +124,6 @@ def client():
 
         print("Connexion établie avec le serveur sur le port {}".format(jeu.reglages.PORT_CONNEXION))
 
-        jeu.client_.envoyeur = jeu.client_.Envoyeur(connexion_avec_serveur)
-        jeu.client_.envoyeur.start()
-
         connexion_avec_serveur.socket.send(b"bonjour")
 
         msg_a_envoyer = b""
@@ -127,7 +131,11 @@ def client():
             msg_a_envoyer = input("> ")
 
             msg_a_envoyer = msg_a_envoyer.encode()
-            connexion_avec_serveur.socket.send(msg_a_envoyer)
-            msg_recu = connexion_avec_serveur.socket.recv(1024)
+            try:
+                connexion_avec_serveur.socket.send(msg_a_envoyer)
+                msg_recu = connexion_avec_serveur.socket.recv(1024)
+            except Exception as e:
+                print(e)
+                return
             print(msg_recu.decode())
 

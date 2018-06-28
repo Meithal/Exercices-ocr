@@ -49,17 +49,25 @@ class ConnexionServeur(Connexion):
 
         return True
 
-    def traite_requetes(self):
-        connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
+    def requetes(self):
+        accueille_nouveaux = self.nouveaux_clients()
+        accueille_nouveaux.send(None)
+        while True:
+            connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
+            if len(connexions_demandees):
+                accueille_nouveaux.send(connexions_demandees)
+                yield connexions_demandees
 
-        for connexion in connexions_demandees:
-            connexion_avec_client, infos_connexion = connexion.accept()
+    def nouveaux_clients(self):
+        while True:
+            connexions_demandees = yield
 
-            print("Client connecté", infos_connexion)
+            for connexion in connexions_demandees:
+                connexion_avec_client, infos_connexion = connexion.accept()
 
-            self.clients_connectes[connexion_avec_client] = {"port": infos_connexion[1]}
+                print("Client connecté", infos_connexion)
 
-        return True
+                self.clients_connectes[connexion_avec_client] = {"port": infos_connexion[1]}
 
     def clients_a_lire(self):
         try:

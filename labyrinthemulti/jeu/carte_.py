@@ -21,19 +21,18 @@ class Carte:
     def ajoute_joueur(self, port):
         if self.partie_commencee:
             return False
-        print("On ajoute un joueur")
         nouveau_joueur = jeu.joueur.Joueur(port)
         if not nouveau_joueur.position:
             print("Il n'y a plus assez de place pour ajouter un joueur sur cette carte")
             return -1
         else:
-            print("Joueur ajouté")
             self.joueurs.append(nouveau_joueur)
             return len(self.joueurs) - 1
 
-    def affiche_serveur(self):
+    def afficher(self, joueur = -1):
         """
         Affiche la carte, saute une ligne quand on a affiché un nombre de caractères équivalent  une ligne
+        TODO: gerer le parametre joueur pour afficher en mode client
         :return:
         """
         idx_joueur = 1
