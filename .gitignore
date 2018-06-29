@@ -4,3 +4,5 @@ __pycache__/
 labyrinthesolo/save.txt
 *.pyc
 penduc/cmake-build-debug/
+*.c___jb_old___
+*.c___jb_tmp___
