@@ -18,16 +18,16 @@ class Carte:
         self.joueurs = []
         self.partie_commencee = False
 
-    def ajoute_joueur(self, port):
-        if self.partie_commencee:
-            return False
-        nouveau_joueur = jeu.joueur.Joueur(port)
-        if not nouveau_joueur.position:
-            print("Il n'y a plus assez de place pour ajouter un joueur sur cette carte")
-            return -1
-        else:
-            self.joueurs.append(nouveau_joueur)
-            return len(self.joueurs) - 1
+    # def ajoute_joueur(self, socket):
+    #     if self.partie_commencee:
+    #         return False
+    #     nouveau_joueur = jeu.joueur.Joueur(socket)
+    #     if not nouveau_joueur.position:
+    #         print("Il n'y a plus assez de place pour ajouter un joueur sur cette carte")
+    #         return -1
+    #     else:
+    #         self.joueurs.append(nouveau_joueur)
+    #         return len(self.joueurs) - 1
 
     def afficher(self, joueur = -1):
         """

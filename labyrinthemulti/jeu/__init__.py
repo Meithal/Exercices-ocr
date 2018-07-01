@@ -69,6 +69,8 @@ def execute_input(i):
 def serveur():
     """La boucle principale du jeu"""
 
+    # def connexionEntrante():
+
     print("Veuillez choisir une carte")
     i = 1
     for f in os.listdir('cartes'):
@@ -87,24 +89,45 @@ def serveur():
 
     carte.afficher()
 
-    with jeu.reseau.ConnexionServeur('', jeu.reglages.PORT_CONNEXION, "Connexion principale") as connexion_principale:
+    with jeu.reseau.ConnexionServeur(
+            '',
+            jeu.reglages.PORT_CONNEXION,
+            "Connexion principale") as connexion_ecoute:
+
+        if not connexion_ecoute:
+            print("Echec de connexion avec le serveur")
+            return
 
         while True:
 
             if not carte.partie_commencee:
-                next(connexion_principale.requetes())
 
-            for client in connexion_principale.clients_a_lire()[SELECT_SOCKET_INPUT]:
-                msg_recu = client.recv(1024).decode()
-                print("Recu {!r} depuis {}".format(msg_recu, connexion_principale.clients_connectes[client]))
-                if msg_recu == "bonjour":
-                    if carte.ajoute_joueur(connexion_principale.clients_connectes[client]["port"]) >= 0:
-                        client.send(b"Bienvenue dans le jeu")
+                nouveau = next(connexion_ecoute.requetes())
+
+                if nouveau:
+                    joueur = jeu.joueur.Joueur(nouveau)
+
+                    if joueur.position:
+                        print("Nouveau joueur ajouté à la carte")
+                        carte.joueurs.append(joueur)
+
                     else:
-                        client.send(b"Nous n'avons pas reussi a vous placer dans le jeu, vous pouvez reessayer.")
-                        connexion_principale.clients_connectes[client].close()
-                if msg_recu == "fin":
-                    raise jeu.reseau.ConnexionServeur.ArretServeur
+                        print ("impossible d'ajouter un nouveau joueur")
+                        connexion_ecoute.kick_client(joueur.sock)
+
+                if len(carte.joueurs):
+                    for joueur in carte.joueurs:
+                        message = joueur.pop_buffer_clavier()
+                        print (message)
+
+            # for client in connexion_ecoute.clients_a_lire()[SELECT_SOCKET_INPUT]:
+            #
+            #     msg_recu = client.recv(1024).decode()
+            #     print("Recu {!r} depuis {}".format(msg_recu, connexion_ecoute.clients_connectes[client]))
+            #
+            #     if msg_recu == "fin":
+            #         raise jeu.reseau.ConnexionServeur.ArretServeur
+
             if carte.partie_commencee:
                 carte.afficher()
 
@@ -120,22 +143,28 @@ def client():
     with jeu.reseau.ConnexionClient(
             jeu.reglages.HOTE_CONNEXION,
             jeu.reglages.PORT_CONNEXION,
-            "Connection client sortante.") as connexion_avec_serveur:
+            "Connection client sortante.") as connexion:
+
+        # on doit le gerer la connectivité ici car on ne peut pas break d'un with
+        if not connexion:
+            print("Echec de connexion avec le serveur")
+            return
 
         print("Connexion établie avec le serveur sur le port {}".format(jeu.reglages.PORT_CONNEXION))
 
-        connexion_avec_serveur.socket.send(b"bonjour")
+        connexion.envoyer("bonjour")
 
-        msg_a_envoyer = b""
-        while msg_a_envoyer != b"fin":
+        msg_a_envoyer = ""
+        while msg_a_envoyer != "fin":
             msg_a_envoyer = input("> ")
-
-            msg_a_envoyer = msg_a_envoyer.encode()
+            print("foo")
             try:
-                connexion_avec_serveur.socket.send(msg_a_envoyer)
-                msg_recu = connexion_avec_serveur.socket.recv(1024)
+                connexion.envoyer(msg_a_envoyer)
+                print("bar")
+                # msg_recu = connexion.socket.recv(1024)
+                print("baz")
             except Exception as e:
                 print(e)
                 return
-            print(msg_recu.decode())
+            # print(msg_recu.decode())
 

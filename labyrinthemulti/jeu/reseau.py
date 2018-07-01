@@ -1,5 +1,9 @@
 import socket
 import select
+import traceback
+import collections
+
+Info_connexion = collections.namedtuple("Info_connexion", "addresse, port")
 
 
 class Connexion:
@@ -17,6 +21,9 @@ class Connexion:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.socket.close()
 
+    def envoyer(self, message):
+        self.socket.send(bytes(message, encoding='utf-8'))
+
 
 class ConnexionServeur(Connexion):
 
@@ -27,6 +34,8 @@ class ConnexionServeur(Connexion):
         super().__init__(addresse, port, description)
         self.clients_connectes = {}
         self.lance = True
+
+        self.ecouteurs_nouvelles_connexions = []
 
     def __enter__(self):
         super().__enter__()
@@ -43,31 +52,33 @@ class ConnexionServeur(Connexion):
             print("Fermeture du serveur demandée")
         else:
             print("Exception inhabituelle : %s" % valeur_exception)
+            traceback.print_tb(traceback_exception)
 
         for cli in self.clients_connectes:
             cli.close()
 
         return True
 
+
     def requetes(self):
-        accueille_nouveaux = self.nouveaux_clients()
+
+        def nouvelles_connexions():
+            while True:
+                connexions_demandees = yield
+                for connexion in connexions_demandees:
+                    connexion_avec_client, infos_connexion = connexion.accept()
+                    self.clients_connectes[connexion_avec_client] = Info_connexion(*infos_connexion)
+                    yield connexion_avec_client
+
+        accueille_nouveaux = nouvelles_connexions()
         accueille_nouveaux.send(None)
         while True:
             connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
             if len(connexions_demandees):
-                accueille_nouveaux.send(connexions_demandees)
-                yield connexions_demandees
+                nouveau = accueille_nouveaux.send(connexions_demandees)
+                yield nouveau
+            yield None
 
-    def nouveaux_clients(self):
-        while True:
-            connexions_demandees = yield
-
-            for connexion in connexions_demandees:
-                connexion_avec_client, infos_connexion = connexion.accept()
-
-                print("Client connecté", infos_connexion)
-
-                self.clients_connectes[connexion_avec_client] = {"port": infos_connexion[1]}
 
     def clients_a_lire(self):
         try:
@@ -77,11 +88,21 @@ class ConnexionServeur(Connexion):
         else:
             return clients_a_lire
 
+    def kick_client(self, client):
+        self.clients_connectes[client].close()
+
 
 class ConnexionClient(Connexion):
 
     def __enter__(self):
         super().__enter__()
-        self.socket.connect((self.addresse, self.port))
+        try:
+            self.socket.connect((self.addresse, self.port))
+            return self
+        except Exception as e:
+            print(e)
+            return None
 
-        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print ("Fermeture de la connexion cliente")
+        pass
