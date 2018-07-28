@@ -17,6 +17,8 @@ class Carte:
         self.position_par_defaut = jeu.emplacement.Emplacement(-1, 1)
         self.joueurs = []
         self.partie_commencee = False
+        self.partie_gagnee = False
+        self.joueur_actif = 0
 
     # def ajoute_joueur(self, socket):
     #     if self.partie_commencee:
@@ -29,22 +31,29 @@ class Carte:
     #         self.joueurs.append(nouveau_joueur)
     #         return len(self.joueurs) - 1
 
-    def afficher(self, joueur = -1):
+    def afficher(self, pos_joueur = -1):
         """
         Affiche la carte, saute une ligne quand on a affiché un nombre de caractères équivalent  une ligne
-        TODO: gerer le parametre joueur pour afficher en mode client
-        :return:
+        :return: string
         """
         idx_joueur = 1
+        string = ""
         for (i, c) in enumerate(self.flux):
             if i in [joueur.position.index_ for joueur in self.joueurs]:
-                print(str(idx_joueur), end='')
-                idx_joueur += 1
+                if pos_joueur == -1:
+                    string += str(idx_joueur)
+                    idx_joueur += 1
+                else:
+                    if pos_joueur == i:
+                        string += "X"
+                    else:
+                        string += "x"
             else:
-                print(c, end='')
+                string += c
             if (i + 1) % self.taille_ligne == 0:
-                print(end='\n')
-        print(end='\n')
+                string += '\n'
+        string += '\n'
+        return string
 
     def load_level(self, nom):
         """Charge la carte donnée depuis un nom de fichier, positionne le joueur.

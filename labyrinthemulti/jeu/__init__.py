@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import jeu.carte_  # on utilise deja le nom 'carte' pour stocker l'instance de Carte
 import jeu.emplacement
@@ -87,11 +88,12 @@ def serveur():
 
     carte.load_level(cartes[selected_carte])
 
-    carte.afficher()
+    print(carte.afficher())
 
-    with jeu.reseau.ConnexionServeur(
+    with jeu.reseau.ConnexionDepuisServeur(
             '',
             jeu.reglages.PORT_CONNEXION,
+            carte,
             "Connexion principale") as connexion_ecoute:
 
         if not connexion_ecoute:
@@ -102,35 +104,42 @@ def serveur():
 
             if not carte.partie_commencee:
 
-                nouveau = next(connexion_ecoute.requetes())
+                nouveau = next(connexion_ecoute.nouvelles_connexions())
 
                 if nouveau:
                     joueur = jeu.joueur.Joueur(nouveau)
 
                     if joueur.position:
-                        print("Nouveau joueur ajouté à la carte")
+                        print("Nouveau joueur ajouté à la carte sur port {}".format(joueur.port))
                         carte.joueurs.append(joueur)
+                        for joueur_ in carte.joueurs:
+                            joueur_.connexion.envoyer(
+                                "Bienvenue au nouveau joueur sur le port {}\n{}".format(joueur.port, carte.afficher(joueur_.position.index_))
+                            )
 
                     else:
-                        print ("impossible d'ajouter un nouveau joueur")
+                        print("impossible d'ajouter un nouveau joueur")
                         connexion_ecoute.kick_client(joueur.sock)
 
                 if len(carte.joueurs):
-                    for joueur in carte.joueurs:
-                        message = joueur.pop_buffer_clavier()
-                        print (message)
 
-            # for client in connexion_ecoute.clients_a_lire()[SELECT_SOCKET_INPUT]:
-            #
-            #     msg_recu = client.recv(1024).decode()
-            #     print("Recu {!r} depuis {}".format(msg_recu, connexion_ecoute.clients_connectes[client]))
-            #
-            #     if msg_recu == "fin":
-            #         raise jeu.reseau.ConnexionServeur.ArretServeur
+                    connexion_ecoute.clients_a_lire()
+
+                    for joueur_ in carte.joueurs:
+                        if joueur_.buffer_clavier:
+                            contenu = joueur_.pop_clavier_buffer()
+                            print(contenu)
+                            if contenu == reglages.CHAINE_COMMENCER:
+                                carte.partie_commencee = True
 
             if carte.partie_commencee:
-                carte.afficher()
+                break
 
+        print(carte.afficher())
+
+        while not carte.partie_gagnee:
+            print("C'est au joueur {}  de jouer".format(carte.joueur_actif))
+            connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte.joueur_actif))
 
     # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
     #     carte.affiche_serveur()
@@ -140,31 +149,43 @@ def serveur():
 
 def client():
 
-    with jeu.reseau.ConnexionClient(
+    import jeu.lib_client
+
+    with jeu.reseau.ConnexionDepuisClient(
             jeu.reglages.HOTE_CONNEXION,
             jeu.reglages.PORT_CONNEXION,
             "Connection client sortante.") as connexion:
 
-        # on doit le gerer la connectivité ici car on ne peut pas break d'un with
         if not connexion:
             print("Echec de connexion avec le serveur")
             return
 
         print("Connexion établie avec le serveur sur le port {}".format(jeu.reglages.PORT_CONNEXION))
+        print("Notre port: {}".format(connexion.local_port))
 
         connexion.envoyer("bonjour")
 
-        msg_a_envoyer = ""
-        while msg_a_envoyer != "fin":
-            msg_a_envoyer = input("> ")
-            print("foo")
-            try:
-                connexion.envoyer(msg_a_envoyer)
-                print("bar")
-                # msg_recu = connexion.socket.recv(1024)
-                print("baz")
-            except Exception as e:
-                print(e)
-                return
-            # print(msg_recu.decode())
+        while True:
+            next(connexion.ecoute())
 
+            if connexion.contenu_a_afficher:
+                print(connexion.pop_contenu_a_afficher())
+
+            if connexion.attend_entree:
+
+                connexion.attend_entree = False
+
+                print("Vous avez 5 secondes pour entrer une instruction.\nvvv")
+                try:
+                    sortie = subprocess.check_output(
+                        'py -3 ./ask_for_input.py', timeout=5.0, stderr=subprocess.STDOUT
+                    ).decode("utf-8")
+                except subprocess.TimeoutExpired:
+                    print("\nTrop tard !")
+                    sortie = ""
+                print("Ce que vous avez ecrit: " + sortie)
+
+            #
+            #     thread_afficheur.show("env")
+            #     thread_clavier.join(5.0)
+            #     connexion.envoyer(thread_clavier.message_queue.pop())

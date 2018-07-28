@@ -7,3 +7,5 @@ VICTORY_CHARS = 'U'  # marcher sur un des caracteres presents dans cette chaine 
 CARACTERE_JOUEUR = 'X'  # ce caractere sera recherche dans le flux de la carte pour determiner
                         # la position initiale du joueur, il sera affiché comme sprite du joueur
 LONGUEUR_MAX_INPUT = 100
+
+CHAINE_COMMENCER = "c"

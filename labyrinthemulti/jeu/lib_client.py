@@ -1,34 +1,27 @@
+import select
 import sys
 import threading
 
 verrou = threading.RLock()
+
 
 class Afficheur(threading.Thread):
 
     def __init__(self):
         super().__init__(daemon=True)
         self.run()
+        self._coro = None
 
     def run(self):
-        self.coro().__next__()
+        self._coro = self.coro()
+        self._coro.send(None)
 
-    def coro(self):
-        trucs = yield
-        with verrou:
-            print (trucs)
-
-
-class Envoyeur(threading.Thread):
-
-    def __init__(self, connexion):
-        super().__init__()
-
-        self.connexion = connexion
-        self.run()
-
-    def run(self):
+    @staticmethod
+    def coro():
         while True:
+            trucs = yield
             with verrou:
-                self.connexion.socket.send(b"Test connexion")
-                msg_recu = self.connexion.socket.recv(1024).decode()
-                print ("Test:", msg_recu)
+                print(trucs)
+
+    def show(self, things):
+        self._coro.send(things)

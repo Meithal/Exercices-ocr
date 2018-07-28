@@ -3,18 +3,22 @@ import select
 import traceback
 import collections
 
+import jeu
+
 Info_connexion = collections.namedtuple("Info_connexion", "addresse, port")
 
 
 class Connexion:
 
-    def __init__(self, addresse, port, description=''):
-        self.addresse = addresse
-        self.port = port
-        self.description = description if description else (addresse, port)
+    def __init__(self, addresse_loc, port_loc, description='', sock=None):
+        self.addresse = addresse_loc
+        self.port = port_loc
+        self.description = description if description else (addresse_loc, port_loc)
+        self.socket = sock
 
     def __enter__(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if not self.socket:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         return self
 
@@ -22,20 +26,23 @@ class Connexion:
         self.socket.close()
 
     def envoyer(self, message):
+        print("envoi: {}, {}".format(self.description, message))
         self.socket.send(bytes(message, encoding='utf-8'))
 
 
-class ConnexionServeur(Connexion):
+class ConnexionDepuisServeur(Connexion):
 
     class ArretServeur(Exception):
         pass
 
-    def __init__(self, addresse, port, description=''):
-        super().__init__(addresse, port, description)
+    def __init__(self, addresse_loc, port_loc, carte, description=''):
+        super().__init__(addresse_loc, port_loc, description)
         self.clients_connectes = {}
         self.lance = True
 
         self.ecouteurs_nouvelles_connexions = []
+
+        self.carte = carte
 
     def __enter__(self):
         super().__enter__()
@@ -43,61 +50,90 @@ class ConnexionServeur(Connexion):
         self.socket.bind((self.addresse, self.port))
         self.socket.listen(5)
 
-        print("Le serveur écoute sur le port {}".format(self.port), id(self.socket))
+        print("Le serveur écoute sur le port {}".format(self.port))
 
         return self
 
     def __exit__(self, type_exception, valeur_exception, traceback_exception):
-        if type_exception is ConnexionServeur.ArretServeur:
+        if type_exception is ConnexionDepuisServeur.ArretServeur:
             print("Fermeture du serveur demandée")
-        else:
+        elif type_exception:
             print("Exception inhabituelle : %s" % valeur_exception)
             traceback.print_tb(traceback_exception)
+        else:
+            print("Sortie de la connexion serveur")
 
         for cli in self.clients_connectes:
             cli.close()
 
         return True
 
+    def nouvelles_connexions(self):
 
-    def requetes(self):
-
-        def nouvelles_connexions():
+        def coro():
             while True:
                 connexions_demandees = yield
                 for connexion in connexions_demandees:
                     connexion_avec_client, infos_connexion = connexion.accept()
-                    self.clients_connectes[connexion_avec_client] = Info_connexion(*infos_connexion)
-                    yield connexion_avec_client
+                    connexion_obj = ConnexionVersClient(
+                        jeu.reglages.HOTE_CONNEXION,
+                        jeu.reglages.PORT_CONNEXION,
+                        description="Connexion sortante vers {}".format(connexion_avec_client.getpeername()[1]),
+                        sock=connexion_avec_client
+                    )
+                    self.clients_connectes[connexion_avec_client] = connexion_obj
+                        # Info_connexion(*infos_connexion)
+                    print(connexion_obj, connexion_obj.socket, connexion_obj.port, connexion_obj.addresse)
+                    yield connexion_obj
 
-        accueille_nouveaux = nouvelles_connexions()
-        accueille_nouveaux.send(None)
+        accueille_nouveaux_coro = coro()
+        accueille_nouveaux_coro.send(None)
         while True:
             connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
             if len(connexions_demandees):
-                nouveau = accueille_nouveaux.send(connexions_demandees)
-                yield nouveau
+                yield accueille_nouveaux_coro.send(connexions_demandees)
             yield None
-
 
     def clients_a_lire(self):
         try:
-            clients_a_lire = select.select(self.clients_connectes.keys(), [], [], 0.05)
-        except select.error:
-            return [], [], []
+            clients_a_lire = select.select(self.clients_connectes.keys(), [], [], 0.05)[0]
+        except select.error as e:
+            print("Erreur lors du select", type(e), e)
+            return []
+        except Exception as e:
+            print("Erreur inhabituelle", type(e), e)
         else:
-            return clients_a_lire
+            for cli in clients_a_lire:
+                try:
+                    self.carte.joueurs[self.carte.joueurs.index(cli)].buffer_clavier = cli.recv(1024)
+                except Exception as e:
+                    print("Erreur lors du recv", type(e), e)
+                    self.kick_client(cli)
 
     def kick_client(self, client):
-        self.clients_connectes[client].close()
+        print("On enleve le client de la carte")
+        del self.carte.joueurs[self.carte.joueurs.index(client)]
+        client.close()
+        del self.clients_connectes[client]
 
 
-class ConnexionClient(Connexion):
+class ConnexionVersClient(Connexion):
+    pass
+
+
+class ConnexionDepuisClient(Connexion):
+
+    def __init__(self, addresse_loc, port_loc, description=""):
+        super().__init__(addresse_loc, port_loc, description)
+        self.contenu_a_afficher = []
+        self.attend_entree = True
 
     def __enter__(self):
         super().__enter__()
         try:
             self.socket.connect((self.addresse, self.port))
+            self.local_port = self.socket.getsockname()[1]
+            self.remote_port = self.port
             return self
         except Exception as e:
             print(e)
@@ -105,4 +141,15 @@ class ConnexionClient(Connexion):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print ("Fermeture de la connexion cliente")
-        pass
+
+    def ecoute(self):
+        while True:
+            entrees = select.select([self.socket], [], [], 0.05)[0]
+            if entrees:
+                print("Entree recue")
+                self.contenu_a_afficher.append(entrees[0].recv(1024))
+            yield self.contenu_a_afficher
+
+    def pop_contenu_a_afficher(self):
+        ct = self.contenu_a_afficher.pop()
+        return ct.decode("utf-8")

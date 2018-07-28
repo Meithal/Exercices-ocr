@@ -3,11 +3,12 @@ import random
 
 
 class Joueur:
-    def __init__(self, sock):
+    def __init__(self, connexion):
 
-        self.sock = sock
-        self.addresse = sock.getsockname()[0]
-        self.port = sock.getsockname()[1]
+        self.connexion = connexion
+        self.sock = connexion.socket
+        self.addresse = self.sock.getpeername()[0]
+        self.port = self.sock.getpeername()[1]
 
         print ("On ajoute un joueur sur le port " + str(self.port))
         self.position = None
@@ -18,5 +19,12 @@ class Joueur:
                 if emplacement.distance_vers_sortie_plus_proche() > 5:
                     self.position = jeu.emplacement.Emplacement(index_, jeu.carte.taille_ligne)
 
-    def pop_buffer_clavier(self):
-        return "bar"
+        self.buffer_clavier = bytes()
+
+    def __eq__(self, other):
+        return self.sock is other
+
+    def pop_clavier_buffer(self):
+        rv = self.buffer_clavier.decode("utf-8")
+        self.buffer_clavier = bytes()
+        return rv
