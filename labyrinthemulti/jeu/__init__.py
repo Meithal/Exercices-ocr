@@ -7,16 +7,13 @@ import jeu.joueur
 import jeu.reglages
 import jeu.reseau
 
-cartes = []  # une liste de nom de cartes
-carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
-
 
 SELECT_SOCKET_INPUT = 0
 SELECT_SOCKET_OUTPUT = 1
 SELECT_SOCKET_EXCEPT = 2
 
 
-def execute_input(i):
+def execute_input(i, carte):
     """
     Modifie l'état du jeu en fonction de l'input demandé
     :param i: une chaine de caractères demandée par le joueur
@@ -71,6 +68,9 @@ def serveur():
     """La boucle principale du jeu"""
 
     # def connexionEntrante():
+
+    cartes = []  # une liste de nom de cartes
+    carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
 
     print("Veuillez choisir une carte")
     i = 1
@@ -141,7 +141,7 @@ def serveur():
             print("C'est au joueur {}  de jouer".format(carte.joueur_actif))
             connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte.joueur_actif))
 
-    # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
+    # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n"), carte):
     #     carte.affiche_serveur()
 
     print("Merci d'avoir joué")
@@ -175,10 +175,10 @@ def client():
 
                 connexion.attend_entree = False
 
-                print("Vous avez 5 secondes pour entrer une instruction.\nvvv")
+                print("Vous avez 15 secondes pour entrer une instruction.\nvvv")
                 try:
                     sortie = subprocess.check_output(
-                        'py -3 ./ask_for_input.py', timeout=5.0, stderr=subprocess.STDOUT
+                        'py -3 ./ask_for_input.py', timeout=15.0, stderr=subprocess.STDOUT
                     ).decode("utf-8")
                 except subprocess.TimeoutExpired:
                     print("\nTrop tard !")
