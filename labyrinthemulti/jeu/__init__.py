@@ -114,7 +114,10 @@ def serveur():
                         carte.joueurs.append(joueur)
                         for joueur_ in carte.joueurs:
                             joueur_.connexion.envoyer(
-                                "Bienvenue au nouveau joueur sur le port {}\n{}".format(joueur.port, carte.afficher(joueur_.position.index_))
+                                "Bienvenue au nouveau joueur sur le port {}\n{}".format(
+                                    joueur.port, carte.afficher(joueur_.position.index_)
+                                ),
+                                verbose=reseau.VERBOSE_PORT_ONLY
                             )
 
                     else:
@@ -128,7 +131,7 @@ def serveur():
                     for joueur_ in carte.joueurs:
                         if joueur_.buffer_clavier:
                             contenu = joueur_.pop_clavier_buffer()
-                            print(contenu)
+                            print(contenu, "reçu depuis", joueur_.connexion.description)
                             if contenu == reglages.CHAINE_COMMENCER:
                                 carte.partie_commencee = True
 
@@ -148,8 +151,13 @@ def serveur():
 
 
 def client():
+    """
+    Pour l'instant il s'agit d'un simple minitel qui affiche et envoie des donnees, et n'initialise pas d'objet carte
+    :return:
+    """
 
     import jeu.lib_client
+    import threading
 
     with jeu.reseau.ConnexionDepuisClient(
             jeu.reglages.HOTE_CONNEXION,
@@ -165,27 +173,21 @@ def client():
 
         connexion.envoyer("bonjour")
 
+        def display():
+            import time
+            while True:
+                time.sleep(1)
+                next(connexion.ecoute())
+                if connexion.contenu_a_afficher:
+                    print(connexion.pop_contenu_a_afficher(),
+                          "\nLe serveur a envoyé le contenu ci dessus. Si vous etiez en train de taper",
+                          "quelque chose veuillez recommencer.",
+                          "\nvvv")
+
+        threading.Thread(target=display).start()  # ce thread affiche le contenu que le serveur envoi
+
         while True:
-            next(connexion.ecoute())
 
-            if connexion.contenu_a_afficher:
-                print(connexion.pop_contenu_a_afficher())
-
-            if connexion.attend_entree:
-
-                connexion.attend_entree = False
-
-                print("Vous avez 5 secondes pour entrer une instruction.\nvvv")
-                try:
-                    sortie = subprocess.check_output(
-                        'py -3 ./ask_for_input.py', timeout=5.0, stderr=subprocess.STDOUT
-                    ).decode("utf-8")
-                except subprocess.TimeoutExpired:
-                    print("\nTrop tard !")
-                    sortie = ""
-                print("Ce que vous avez ecrit: " + sortie)
-
-            #
-            #     thread_afficheur.show("env")
-            #     thread_clavier.join(5.0)
-            #     connexion.envoyer(thread_clavier.message_queue.pop())
+            buffer = input("> ")
+            print("Ce que vous avez ecrit: " + buffer)
+            connexion.envoyer(buffer)

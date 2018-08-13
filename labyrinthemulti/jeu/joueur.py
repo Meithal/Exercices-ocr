@@ -10,7 +10,7 @@ class Joueur:
         self.addresse = self.sock.getpeername()[0]
         self.port = self.sock.getpeername()[1]
 
-        print ("On ajoute un joueur sur le port " + str(self.port))
+        print("On ajoute un joueur sur le port " + str(self.port))
         self.position = None
         for i in range(30):
             index_ = random.randrange(len(jeu.carte.flux))

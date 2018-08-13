@@ -1,11 +1,12 @@
 import socket
 import select
 import traceback
-import collections
 
 import jeu
 
-Info_connexion = collections.namedtuple("Info_connexion", "addresse, port")
+VERBOSE_ALL = 2
+VERBOSE_PORT_ONLY = 1
+VERBOSE_NO = 0
 
 
 class Connexion:
@@ -25,8 +26,11 @@ class Connexion:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.socket.close()
 
-    def envoyer(self, message):
-        print("envoi: {}, {}".format(self.description, message))
+    def envoyer(self, message, verbose=VERBOSE_ALL):
+        if verbose == VERBOSE_ALL:
+            print("envoi: {}, {}".format(self.description, message))
+        if verbose == VERBOSE_PORT_ONLY:
+            print("envoi sur socket: {}".format(self.description))
         self.socket.send(bytes(message, encoding='utf-8'))
 
 
@@ -72,8 +76,8 @@ class ConnexionDepuisServeur(Connexion):
 
         def coro():
             while True:
-                connexions_demandees = yield
-                for connexion in connexions_demandees:
+                _connexions_demandees = yield
+                for connexion in _connexions_demandees:
                     connexion_avec_client, infos_connexion = connexion.accept()
                     connexion_obj = ConnexionVersClient(
                         jeu.reglages.HOTE_CONNEXION,
@@ -82,8 +86,6 @@ class ConnexionDepuisServeur(Connexion):
                         sock=connexion_avec_client
                     )
                     self.clients_connectes[connexion_avec_client] = connexion_obj
-                        # Info_connexion(*infos_connexion)
-                    print(connexion_obj, connexion_obj.socket, connexion_obj.port, connexion_obj.addresse)
                     yield connexion_obj
 
         accueille_nouveaux_coro = coro()
@@ -116,6 +118,9 @@ class ConnexionDepuisServeur(Connexion):
         client.close()
         del self.clients_connectes[client]
 
+    def broadcast(self, message):
+        for connexion in self.clients_connectes:
+            connexion.envoyer(message)
 
 class ConnexionVersClient(Connexion):
     pass
@@ -140,7 +145,7 @@ class ConnexionDepuisClient(Connexion):
             return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print ("Fermeture de la connexion cliente")
+        print("Fermeture de la connexion cliente")
 
     def ecoute(self):
         while True:
