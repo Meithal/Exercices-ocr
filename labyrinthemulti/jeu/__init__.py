@@ -7,18 +7,16 @@ import jeu.joueur
 import jeu.reglages
 import jeu.reseau
 
-cartes = []  # une liste de nom de cartes
-carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
-
 
 SELECT_SOCKET_INPUT = 0
 SELECT_SOCKET_OUTPUT = 1
 SELECT_SOCKET_EXCEPT = 2
 
 
-def execute_input(i):
+def execute_input(i, carte):
     """
     Modifie l'état du jeu en fonction de l'input demandé
+    :param carte: La carte
     :param i: une chaine de caractères demandée par le joueur
     :return: True, le jeu continue, False, le jeu s'arrête
     """
@@ -71,6 +69,9 @@ def serveur():
     """La boucle principale du jeu"""
 
     # def connexionEntrante():
+
+    cartes = []  # une liste de nom de cartes
+    carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
 
     print("Veuillez choisir une carte")
     i = 1
@@ -144,7 +145,7 @@ def serveur():
             print("C'est au joueur {}  de jouer".format(carte.joueur_actif))
             connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte.joueur_actif))
 
-    # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n")):
+    # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n"), carte):
     #     carte.affiche_serveur()
 
     print("Merci d'avoir joué")
