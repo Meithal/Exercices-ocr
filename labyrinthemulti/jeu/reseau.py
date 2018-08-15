@@ -16,14 +16,10 @@ class Connexion:
         self.port = port_loc
         self.description = description if description else (addresse_loc, port_loc)
         self.socket = sock
-
-    def __enter__(self):
         if not self.socket:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __del__(self):
         self.socket.close()
 
     def envoyer(self, message, verbose=VERBOSE_ALL):
@@ -42,9 +38,6 @@ class ConnexionDepuisServeur(Connexion):
     def __init__(self, addresse_loc, port_loc, carte, description=''):
         super().__init__(addresse_loc, port_loc, description)
         self.clients_connectes = {}
-        self.lance = True
-
-        self.ecouteurs_nouvelles_connexions = []
 
         self.carte = carte
 

@@ -88,56 +88,61 @@ def serveur():
 
     print(carte_.afficher())
 
-    with jeu.reseau.ConnexionDepuisServeur(
-            '',
-            jeu.reglages.PORT_CONNEXION,
-            carte,
-            "Connexion principale") as connexion_ecoute:
+    connexion_ecoute = jeu.reseau.ConnexionDepuisServeur(
+        '',
+        jeu.reglages.PORT_CONNEXION,
+        carte_,
+        "Connexion principale"
+    )
 
-        if not connexion_ecoute:
-            print("Echec de connexion avec le serveur")
-            return
+    if not connexion_ecoute:
+        print("Echec de connexion avec le serveur")
+        return
 
-        while True:
+    while True:
 
-            if not carte_.partie_commencee():
+        if not carte_.partie_commencee():
 
-                nouveau = next(connexion_ecoute.nouvelles_connexions())
+            nouveau = next(connexion_ecoute.nouvelles_connexions())
 
-                if nouveau:
-                    joueur_ = jeu.Joueur(nouveau, connexion_ecoute, carte_)
+            if nouveau:
+                joueur_ = jeu.Joueur(carte_)
 
-                    if joueur_.position:
-                        print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
-                        carte_.joueurs.append(joueur_)
-                        connexion_ecoute.broadcast(
-                            "Bienvenue au nouveau joueur sur le port {}\n{}".format(
-                                 joueur_.port, carte_.afficher(joueur_.position.index_)
-                            )
+                if joueur_.position:
+                    print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
+
+                    joueur_.connecter(nouveau, connexion_ecoute)
+                    carte_.joueurs.append(joueur_)
+
+                    connexion_ecoute.broadcast(
+                        "Bienvenue au nouveau joueur sur le port {}\n{}".format(
+                             joueur_.port, carte_.afficher(joueur_.position.index_)
                         )
+                    )
 
-                    else:
-                        print("impossible d'ajouter un nouveau joueur")
-                        del joueur_
+                else:
+                    print("impossible d'ajouter un nouveau joueur")
+                    del joueur_
 
-                if len(carte_.joueurs):
+            if len(carte_.joueurs):
 
-                    connexion_ecoute.clients_a_lire()
+                connexion_ecoute.clients_a_lire()
 
-                    for joueur_ in carte_.joueurs:
-                        if joueur_.buffer_clavier:
-                            contenu = joueur_.pop_clavier_buffer()
-                            if contenu == reglages.CHAINE_COMMENCER:
-                                joueur_.est_pret = True
+                for joueur_ in carte_.joueurs:
+                    if joueur_.buffer_clavier:
+                        contenu = joueur_.pop_clavier_buffer()
+                        if contenu == reglages.CHAINE_COMMENCER:
+                            joueur_.est_pret = True
 
-            if carte_.partie_commencee():
-                break
+        if carte_.partie_commencee():
+            break
 
-        print(carte_.afficher())
+    print(carte_.afficher())
 
-        while not carte_.partie_gagnee:
-            print("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
-            connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
+    while not carte_.partie_gagnee:
+        print("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
+        connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
+
 
     # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n"), carte):
     #     carte.affiche_serveur()
@@ -147,7 +152,7 @@ def serveur():
 
 def client():
     """
-    Pour l'instant il s'agit d'un simple minitel qui affiche et envoie des donnees, et n'initialise pas d'objet carte
+    Pour l'instant il s'agit d'un simple telex qui affiche et envoie des donnees, et n'initialise pas d'objet carte
     :return:
     """
 
