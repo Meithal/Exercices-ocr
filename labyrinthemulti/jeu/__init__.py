@@ -1,9 +1,8 @@
 import os
-import subprocess
 
-import jeu.carte_  # on utilise deja le nom 'carte' pour stocker l'instance de Carte
-import jeu.emplacement
-import jeu.joueur
+from jeu.carte import Carte
+from jeu.emplacement import Emplacement
+from jeu.joueur import Joueur
 import jeu.reglages
 import jeu.reseau
 
@@ -68,12 +67,10 @@ def execute_input(i, carte):
 def serveur():
     """La boucle principale du jeu"""
 
-    # def connexionEntrante():
-
     cartes = []  # une liste de nom de cartes
-    carte = jeu.carte_.Carte()  # l'instance de Carte où on joue
 
     print("Veuillez choisir une carte")
+
     i = 1
     for f in os.listdir('cartes'):
         cartes.append(f)
@@ -87,9 +84,9 @@ def serveur():
         else:
             print("Ce n'est pas valide")
 
-    carte.load_level(cartes[selected_carte])
+    carte_ = jeu.Carte(cartes[selected_carte])  # l'instance de Carte où on joue
 
-    print(carte.afficher())
+    print(carte_.afficher())
 
     with jeu.reseau.ConnexionDepuisServeur(
             '',
@@ -103,47 +100,44 @@ def serveur():
 
         while True:
 
-            if not carte.partie_commencee:
+            if not carte_.partie_commencee():
 
                 nouveau = next(connexion_ecoute.nouvelles_connexions())
 
                 if nouveau:
-                    joueur = jeu.joueur.Joueur(nouveau)
+                    joueur_ = jeu.joueur.Joueur(nouveau, carte)
 
-                    if joueur.position:
-                        print("Nouveau joueur ajouté à la carte sur port {}".format(joueur.port))
-                        carte.joueurs.append(joueur)
-                        for joueur_ in carte.joueurs:
-                            joueur_.connexion.envoyer(
-                                "Bienvenue au nouveau joueur sur le port {}\n{}".format(
-                                    joueur.port, carte.afficher(joueur_.position.index_)
-                                ),
-                                verbose=reseau.VERBOSE_PORT_ONLY
+                    if joueur_.position:
+                        print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
+                        carte_.joueurs.append(joueur_)
+                        connexion_ecoute.broadcast(
+                            "Bienvenue au nouveau joueur sur le port {}\n{}".format(
+                                 joueur_.port, carte_.afficher(joueur_.position.index_)
                             )
+                        )
 
                     else:
                         print("impossible d'ajouter un nouveau joueur")
-                        connexion_ecoute.kick_client(joueur.sock)
+                        connexion_ecoute.kick_client(joueur_.sock)
 
-                if len(carte.joueurs):
+                if len(carte_.joueurs):
 
                     connexion_ecoute.clients_a_lire()
 
-                    for joueur_ in carte.joueurs:
+                    for joueur_ in carte_.joueurs:
                         if joueur_.buffer_clavier:
                             contenu = joueur_.pop_clavier_buffer()
-                            print(contenu, "reçu depuis", joueur_.connexion.description)
                             if contenu == reglages.CHAINE_COMMENCER:
-                                carte.partie_commencee = True
+                                joueur_.est_pret = True
 
-            if carte.partie_commencee:
+            if carte_.partie_commencee():
                 break
 
-        print(carte.afficher())
+        print(carte_.afficher())
 
-        while not carte.partie_gagnee:
-            print("C'est au joueur {}  de jouer".format(carte.joueur_actif))
-            connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte.joueur_actif))
+        while not carte_.partie_gagnee:
+            print("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
+            connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
 
     # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n"), carte):
     #     carte.affiche_serveur()
