@@ -74,3 +74,14 @@ class Carte:
                 string += '\n'
         string += '\n'
         return string
+
+    def positions_occupees(self):
+        for joueur in self.joueurs:
+            yield joueur.position
+
+    def departs(self):
+        for emplacement in self.emplacements:
+            if emplacement.est_valide() \
+                    and emplacement not in self.positions_occupees() \
+                    and emplacement.distance_vers_sortie_plus_proche() > 5:
+                yield emplacement

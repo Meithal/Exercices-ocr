@@ -105,7 +105,7 @@ def serveur():
                 nouveau = next(connexion_ecoute.nouvelles_connexions())
 
                 if nouveau:
-                    joueur_ = jeu.joueur.Joueur(nouveau, carte)
+                    joueur_ = jeu.Joueur(nouveau, connexion_ecoute, carte_)
 
                     if joueur_.position:
                         print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
@@ -118,7 +118,7 @@ def serveur():
 
                     else:
                         print("impossible d'ajouter un nouveau joueur")
-                        connexion_ecoute.kick_client(joueur_.sock)
+                        del joueur_
 
                 if len(carte_.joueurs):
 
