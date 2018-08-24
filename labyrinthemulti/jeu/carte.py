@@ -1,4 +1,5 @@
 import jeu
+import typing
 
 
 class Carte:
@@ -35,7 +36,7 @@ class Carte:
 
         self.position_par_defaut = self.emplacements[self.position_par_defaut]
 
-        self.joueurs = []
+        self.joueurs = typing.List[jeu.Joueur]
 
     # def ajoute_joueur(self, socket):
     #     if self.partie_commencee:
@@ -85,3 +86,9 @@ class Carte:
                     and emplacement not in self.positions_occupees() \
                     and emplacement.distance_vers_sortie_plus_proche() > 5:
                 yield emplacement
+
+    def connexions_des_clients(self):
+        return (c.connexion for c in self.joueurs)
+
+    def sockets_des_clients(self):
+        return (c.connexion.socket for c in self.joueurs)

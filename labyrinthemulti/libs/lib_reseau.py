@@ -1,13 +1,17 @@
+# Cette librairie encapsule le module socket pour pouvoir envoyer des donnees sans devoir les convertir
+# vers et depuis des bytes, et fournit un context manager pour facilement ouvrir et fermer une connexion.
+# (c) Ivo Talvet 2018
+
 import socket
 import select
 import traceback
 
-VERBOSE_ALL = 2
-VERBOSE_PORT_ONLY = 1
-VERBOSE_NO = 0
-
 
 class Connexion:
+
+    VERBOSE_ALL = 2
+    VERBOSE_PORT_ONLY = 1
+    VERBOSE_NO = 0
 
     def __init__(self, addresse_loc, port_loc, description='', sock=None):
         self.addresse = addresse_loc
@@ -18,27 +22,28 @@ class Connexion:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __del__(self):
+        """Concerne les socket automatiquement créés lorsqu'un client se connecte."""
         self.socket.close()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.__del__()
+        """Concerne les socket qu'on créé nous même, avec 'with'."""
+        self.socket.close()
 
     def envoyer(self, message, verbose=VERBOSE_ALL):
-        if verbose == VERBOSE_ALL:
+        if verbose == self.VERBOSE_ALL:
             print("envoi: {}, {}".format(self.description, message))
-        if verbose == VERBOSE_PORT_ONLY:
+        if verbose == self.VERBOSE_PORT_ONLY:
             print("envoi sur socket: {}".format(self.description))
         self.socket.send(bytes(message, encoding='utf-8'))
 
 
-class ConnexionDepuisServeur(Connexion):
+class ConnexionEnTantQueServeur(Connexion):
 
     class ArretServeur(Exception):
         pass
 
     def __init__(self, addresse_loc, port_loc, carte, description=''):
         super().__init__(addresse_loc, port_loc, description)
-        self.clients_connectes = {}
 
         self.carte = carte
 
@@ -52,16 +57,13 @@ class ConnexionDepuisServeur(Connexion):
         return self
 
     def __exit__(self, type_exception, valeur_exception, traceback_exception):
-        if type_exception is ConnexionDepuisServeur.ArretServeur:
+        if type_exception is ConnexionEnTantQueServeur.ArretServeur:
             print("Fermeture du serveur demandée")
         elif type_exception:
             print("Exception inhabituelle : %s" % valeur_exception)
             traceback.print_tb(traceback_exception)
         else:
             print("Sortie de la connexion serveur")
-
-        for cli in self.clients_connectes:
-            cli.close()
 
         super().__exit__(type_exception, valeur_exception, traceback_exception)
 
@@ -72,13 +74,12 @@ class ConnexionDepuisServeur(Connexion):
                 _connexions_demandees = yield
                 for connexion in _connexions_demandees:
                     connexion_avec_client, infos_connexion = connexion.accept()
-                    connexion_obj = ConnexionVersClient(
+                    connexion_obj = ConnexionDepuisClient(
                         self.addresse,
                         self.port,
                         description="Connexion sortante vers {}".format(connexion_avec_client.getpeername()[1]),
                         sock=connexion_avec_client
                     )
-                    self.clients_connectes[connexion_avec_client] = connexion_obj
                     yield connexion_obj
 
         accueille_nouveaux_coro = coro()
@@ -89,9 +90,9 @@ class ConnexionDepuisServeur(Connexion):
                 yield accueille_nouveaux_coro.send(connexions_demandees)
             yield None
 
-    def clients_a_lire(self):
+    def clients_a_lire(self, clients):
         try:
-            clients_a_lire = select.select(self.clients_connectes.keys(), [], [], 0.05)[0]
+            clients_a_lire = select.select(clients, [], [], 0.05)[0]
         except select.error as e:
             print("Erreur lors du select", type(e), e)
             return []
@@ -108,18 +109,17 @@ class ConnexionDepuisServeur(Connexion):
     def kick_client(self, client):
         print("On enleve le client de la carte")
         del self.carte.joueurs[self.carte.joueurs.index(client)]
-        del self.clients_connectes[client]
 
-    def broadcast(self, message):
-        for connexion in self.clients_connectes.values():
+    def broadcast(self, message, cibles):
+        for connexion in cibles:
             connexion.envoyer(message)
 
 
-class ConnexionVersClient(Connexion):
+class ConnexionDepuisClient(Connexion):
     pass
 
 
-class ConnexionDepuisClient(Connexion):
+class ConnexionEnTantQueClient(Connexion):
 
     def __init__(self, addresse_loc, port_loc, description=""):
         super().__init__(addresse_loc, port_loc, description)

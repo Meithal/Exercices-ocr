@@ -87,7 +87,7 @@ def serveur():
 
     print(carte_.afficher())
 
-    with lib_reseau.ConnexionDepuisServeur(
+    with lib_reseau.ConnexionEnTantQueServeur(
         '',
         jeu.reglages.PORT_CONNEXION,
         carte_,
@@ -125,7 +125,7 @@ def serveur():
 
                 if len(carte_.joueurs):
 
-                    connexion_ecoute.clients_a_lire()
+                    connexion_ecoute.clients_a_lire(carte_.sockets_des_clients())
 
                     for joueur_ in carte_.joueurs:
                         if joueur_.buffer_clavier:
@@ -140,7 +140,11 @@ def serveur():
 
         while not carte_.partie_gagnee:
             print("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
-            connexion_ecoute.broadcast("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
+
+            connexion_ecoute.broadcast(
+                "C'est au joueur {}  de jouer".format(carte_.joueur_actif),
+                carte_.connexions_des_clients()
+            )
 
 
     # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n"), carte):
@@ -157,7 +161,7 @@ def client():
 
     import threading
 
-    with lib_reseau.ConnexionDepuisClient(
+    with lib_reseau.ConnexionEnTantQueClient(
             jeu.reglages.HOTE_CONNEXION,
             jeu.reglages.PORT_CONNEXION,
             "Connection client sortante.") as connexion:
