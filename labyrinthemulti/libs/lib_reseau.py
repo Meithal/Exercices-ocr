@@ -2,8 +2,6 @@ import socket
 import select
 import traceback
 
-import jeu
-
 VERBOSE_ALL = 2
 VERBOSE_PORT_ONLY = 1
 VERBOSE_NO = 0
@@ -75,8 +73,8 @@ class ConnexionDepuisServeur(Connexion):
                 for connexion in _connexions_demandees:
                     connexion_avec_client, infos_connexion = connexion.accept()
                     connexion_obj = ConnexionVersClient(
-                        jeu.reglages.HOTE_CONNEXION,
-                        jeu.reglages.PORT_CONNEXION,
+                        self.addresse,
+                        self.port,
                         description="Connexion sortante vers {}".format(connexion_avec_client.getpeername()[1]),
                         sock=connexion_avec_client
                     )
