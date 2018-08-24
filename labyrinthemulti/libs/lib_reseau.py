@@ -22,6 +22,9 @@ class Connexion:
     def __del__(self):
         self.socket.close()
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__del__()
+
     def envoyer(self, message, verbose=VERBOSE_ALL):
         if verbose == VERBOSE_ALL:
             print("envoi: {}, {}".format(self.description, message))
@@ -42,7 +45,6 @@ class ConnexionDepuisServeur(Connexion):
         self.carte = carte
 
     def __enter__(self):
-        super().__enter__()
 
         self.socket.bind((self.addresse, self.port))
         self.socket.listen(5)
@@ -63,7 +65,7 @@ class ConnexionDepuisServeur(Connexion):
         for cli in self.clients_connectes:
             cli.close()
 
-        return True
+        super().__exit__(type_exception, valeur_exception, traceback_exception)
 
     def nouvelles_connexions(self):
 
@@ -108,12 +110,12 @@ class ConnexionDepuisServeur(Connexion):
     def kick_client(self, client):
         print("On enleve le client de la carte")
         del self.carte.joueurs[self.carte.joueurs.index(client)]
-        client.close()
         del self.clients_connectes[client]
 
     def broadcast(self, message):
-        for connexion in self.clients_connectes:
+        for connexion in self.clients_connectes.values():
             connexion.envoyer(message)
+
 
 class ConnexionVersClient(Connexion):
     pass
@@ -127,7 +129,7 @@ class ConnexionDepuisClient(Connexion):
         self.attend_entree = True
 
     def __enter__(self):
-        super().__enter__()
+
         try:
             self.socket.connect((self.addresse, self.port))
             self.local_port = self.socket.getsockname()[1]

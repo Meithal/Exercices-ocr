@@ -17,6 +17,7 @@ class Emplacement:
         self.index_ = index_
         self.carte = carte
         self.ligne, self.colonne = divmod(index_, carte.taille_ligne)  # equivalent a (index // taille_ligne, index_ % taille_ligne)
+        self.contenu = contenu
 
     def est_valide(self, depuis=None):
         """
@@ -24,8 +25,6 @@ class Emplacement:
         :param depuis: un autre objet Emplacement, dans le cas d'un deplacement.
         :return: True ou False
         """
-        if self.oob():
-            return False
         if self.bloque():
             return False
         if self.index_ in [joueur.position.index_ for joueur in self.carte.joueurs]:
@@ -36,31 +35,25 @@ class Emplacement:
                     return False  # c'est possible car notre aire de jeu est un flux d'octets continu.
         return True
 
-    def oob(self):
-        """Cet emplacement n'est pas dans la limite de la carte."""
-        return self.index_ < 0 or self.index_ > len(self.carte.flux)
-
     def bloque(self):
         """Cet emplacement contient un caractère bloquant."""
-        if self.carte.flux[self.index_] in jeu.reglages.BLOCKING_CHARS:
+        if self.contenu in jeu.reglages.BLOCKING_CHARS:
             return True
         return False
 
     def fait_gagner(self):
         """Cet emplacement contient un caractère qui fait gagner."""
-        if self.carte.flux[self.index_] in jeu.reglages.VICTORY_CHARS:
+        if self.contenu in jeu.reglages.VICTORY_CHARS:
             return True
         return False
 
     def distance_vers_sortie_plus_proche(self):
         plus_petite_distance = 0
-        for (i, c) in enumerate(self.carte.flux):
-            if c in jeu.reglages.VICTORY_CHARS:
-                emplacement_sortie = jeu.emplacement.Emplacement(i, self.carte.taille_ligne)
-                distance = abs(emplacement_sortie.colonne - self.colonne) + abs(emplacement_sortie.ligne - self.ligne)
+        for emplacement in self.carte.emplacements:
+            if emplacement.contenu in jeu.reglages.VICTORY_CHARS:
+                distance = abs(emplacement.colonne - self.colonne) + abs(emplacement.ligne - self.ligne)
                 if not plus_petite_distance or distance < plus_petite_distance:
                     plus_petite_distance = distance
         return plus_petite_distance
-
 
     # On peut rajouter d'autres fonctions ici comme "fait changer d'étage"

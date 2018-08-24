@@ -26,8 +26,8 @@ class Joueur:
         return self.sock is other
 
     def __del__(self):
-        self.deconnecter()
         self.serveur.kick_client(self.sock)
+        # self.deconnecter()
 
     def connecter(self, connexion, serveur):
         self.connexion = connexion
@@ -44,8 +44,6 @@ class Joueur:
         self.port = None
 
         self.serveur = None
-
-
 
     def pop_clavier_buffer(self):
         rv = self.buffer_clavier.decode("utf-8")
