@@ -98,32 +98,34 @@ def serveur():
             print("Echec de connexion avec le serveur")
             return
 
+        ecouteur_nouvelles_connexions = connexion_ecoute.nouvelles_connexions()
+
         while True:
 
             if not carte_.partie_commencee():
 
-                nouveau = next(connexion_ecoute.nouvelles_connexions())
+                nouvelle_connexion = next(ecouteur_nouvelles_connexions)
 
-                if nouveau:
+                if nouvelle_connexion:
                     joueur_ = jeu.Joueur(carte_)
 
                     if joueur_.position:
                         print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
 
-                        joueur_.connecter(nouveau, connexion_ecoute)
+                        joueur_.connecter(nouvelle_connexion)
                         carte_.joueurs.append(joueur_)
 
                         connexion_ecoute.broadcast(
                             "Bienvenue au nouveau joueur sur le port {}\n{}".format(
                                  joueur_.port, carte_.afficher(joueur_.position.index_)
-                            )
+                            ),
+                            carte_.connexions_des_clients()
                         )
 
                     else:
                         print("impossible d'ajouter un nouveau joueur")
-                        del joueur_
 
-                if len(carte_.joueurs):
+                if carte_.joueurs:
 
                     connexion_ecoute.clients_a_lire(carte_.sockets_des_clients())
 

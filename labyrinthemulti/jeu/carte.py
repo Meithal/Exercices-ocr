@@ -1,5 +1,4 @@
 import jeu
-import typing
 
 
 class Carte:
@@ -36,7 +35,7 @@ class Carte:
 
         self.position_par_defaut = self.emplacements[self.position_par_defaut]
 
-        self.joueurs = typing.List[jeu.Joueur]
+        self.joueurs = []
 
     # def ajoute_joueur(self, socket):
     #     if self.partie_commencee:

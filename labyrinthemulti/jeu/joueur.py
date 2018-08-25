@@ -6,7 +6,6 @@ class Joueur:
     def __init__(self, carte):
 
         self.connexion = None
-        self.sock = None
         self.addresse = None
         self.port = None
 
@@ -23,23 +22,15 @@ class Joueur:
         self.buffer_clavier = bytes()
 
     def __eq__(self, other):
-        return self.sock is other
+        return self.connexion.socket is other
 
-    def __del__(self):
-        self.serveur.kick_client(self.sock)
-        # self.deconnecter()
-
-    def connecter(self, connexion, serveur):
+    def connecter(self, connexion):
         self.connexion = connexion
-        self.sock = connexion.socket
-        self.addresse = self.sock.getpeername()[0]
-        self.port = self.sock.getpeername()[1]
-
-        self.serveur = serveur
+        self.addresse = self.connexion.socket.getpeername()[0]
+        self.port = self.connexion.socket.getpeername()[1]
 
     def deconnecter(self):
         self.connexion = None
-        self.sock = None
         self.addresse = None
         self.port = None
 

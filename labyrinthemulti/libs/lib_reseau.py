@@ -92,7 +92,7 @@ class ConnexionEnTantQueServeur(Connexion):
 
     def clients_a_lire(self, clients):
         try:
-            clients_a_lire = select.select(clients, [], [], 0.05)[0]
+            clients_a_lire = select.select((_.socket for _ in clients), [], [], 0.05)[0]
         except select.error as e:
             print("Erreur lors du select", type(e), e)
             return []
@@ -104,19 +104,16 @@ class ConnexionEnTantQueServeur(Connexion):
                     self.carte.joueurs[self.carte.joueurs.index(cli)].buffer_clavier = cli.recv(1024)
                 except Exception as e:
                     print("Erreur lors du recv", type(e), e)
-                    self.kick_client(cli)
 
-    def kick_client(self, client):
-        print("On enleve le client de la carte")
-        del self.carte.joueurs[self.carte.joueurs.index(client)]
-
-    def broadcast(self, message, cibles):
+    @staticmethod
+    def broadcast(message, cibles):
         for connexion in cibles:
             connexion.envoyer(message)
 
 
 class ConnexionDepuisClient(Connexion):
-    pass
+
+    buffer_clavier = ""
 
 
 class ConnexionEnTantQueClient(Connexion):
