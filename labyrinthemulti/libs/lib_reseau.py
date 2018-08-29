@@ -9,10 +9,6 @@ import traceback
 
 class Connexion:
 
-    VERBOSE_ALL = 2
-    VERBOSE_PORT_ONLY = 1
-    VERBOSE_NO = 0
-
     def __init__(self, addresse_loc, port_loc, description='', sock=None):
         self.addresse = addresse_loc
         self.port = port_loc
@@ -29,18 +25,13 @@ class Connexion:
         """Concerne les socket qu'on créé nous même, avec 'with'."""
         self.socket.close()
 
-    def envoyer(self, message, verbose=VERBOSE_ALL):
-        if verbose == self.VERBOSE_ALL:
+    def envoyer(self, message, verbose=False):
+        if verbose:
             print("envoi: {}, {}".format(self.description, message))
-        if verbose == self.VERBOSE_PORT_ONLY:
-            print("envoi sur socket: {}".format(self.description))
         self.socket.send(bytes(message, encoding='utf-8'))
 
 
 class ConnexionEnTantQueServeur(Connexion):
-
-    class ArretServeur(Exception):
-        pass
 
     def __init__(self, addresse_loc, port_loc, carte, description=''):
         super().__init__(addresse_loc, port_loc, description)
@@ -57,9 +48,7 @@ class ConnexionEnTantQueServeur(Connexion):
         return self
 
     def __exit__(self, type_exception, valeur_exception, traceback_exception):
-        if type_exception is ConnexionEnTantQueServeur.ArretServeur:
-            print("Fermeture du serveur demandée")
-        elif type_exception:
+        if type_exception:
             print("Exception inhabituelle : %s" % valeur_exception)
             traceback.print_tb(traceback_exception)
         else:
@@ -93,13 +82,10 @@ class ConnexionEnTantQueServeur(Connexion):
     def clients_a_lire(self, clients):
         try:
             clients_a_lire = select.select((_.socket for _ in clients), [], [], 0.05)[0]
-        except select.error as e:
-            print("Erreur lors du select", type(e), e)
-            return []
         except Exception as e:
             print("Erreur inhabituelle", type(e), e)
         else:
-            for cli in clients_a_lire:
+            for cli in clients_a_lire: # todo enlever la dependance
                 try:
                     self.carte.joueurs[self.carte.joueurs.index(cli)].buffer_clavier = cli.recv(1024)
                 except Exception as e:
