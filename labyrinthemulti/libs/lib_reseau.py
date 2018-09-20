@@ -4,6 +4,7 @@
 
 import socket
 import select
+import sys
 import traceback
 
 
@@ -81,15 +82,19 @@ class ConnexionEnTantQueServeur(Connexion):
 
     def clients_a_lire(self, clients):
         try:
-            clients_a_lire = select.select((_.socket for _ in clients), [], [], 0.05)[0]
+            clients_a_lire = select.select((_ for _ in clients), [], [], 0.05)[0]
         except Exception as e:
             print("Erreur inhabituelle", type(e), e)
+            raise e
         else:
-            for cli in clients_a_lire: # todo enlever la dependance
+            rv = {}
+            for cli in clients_a_lire:
                 try:
-                    self.carte.joueurs[self.carte.joueurs.index(cli)].buffer_clavier = cli.recv(1024)
+                    rv[cli] = cli.recv(1024)
                 except Exception as e:
                     print("Erreur lors du recv", type(e), e)
+
+            return rv
 
     @staticmethod
     def broadcast(message, cibles):
@@ -128,9 +133,32 @@ class ConnexionEnTantQueClient(Connexion):
             entrees = select.select([self.socket], [], [], 0.05)[0]
             if entrees:
                 print("Entree recue")
-                self.contenu_a_afficher.append(entrees[0].recv(1024))
+                try:
+                    self.contenu_a_afficher.append(entrees[0].recv(1024))
+                except ConnectionResetError:
+                    sys.exit("connexion serveur perdue")
+
             yield self.contenu_a_afficher
 
     def pop_contenu_a_afficher(self):
         ct = self.contenu_a_afficher.pop()
         return ct.decode("utf-8")
+
+
+class Buffer:
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def __init__(self):
+        self.buffer = bytearray()
+
+    # groupe le message au buffer
+    def write(self, message):
+        self.buffer += message
+
+    # lis le buffer et le vide
+    def read(self):
+        rt = self.buffer.decode("utf-8")
+        self.buffer.clear()
+        return rt

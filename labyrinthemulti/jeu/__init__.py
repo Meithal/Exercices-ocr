@@ -102,41 +102,45 @@ def serveur():
 
         while True:
 
-            if not carte_.partie_commencee():
-
-                nouvelle_connexion = next(ecouteur_nouvelles_connexions)
-
-                if nouvelle_connexion:
-                    joueur_ = jeu.Joueur(carte_)
-
-                    if joueur_.position:
-                        print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
-
-                        joueur_.connecter(nouvelle_connexion)
-                        carte_.joueurs.append(joueur_)
-
-                        connexion_ecoute.broadcast(
-                            "Bienvenue au nouveau joueur sur le port {}\n{}".format(
-                                 joueur_.port, carte_.afficher(joueur_.position.index_)
-                            ),
-                            carte_.connexions_des_clients()
-                        )
-
-                    else:
-                        print("impossible d'ajouter un nouveau joueur")
-
-                if carte_.joueurs:
-
-                    connexion_ecoute.clients_a_lire(carte_.sockets_des_clients())
-
-                    for joueur_ in carte_.joueurs:
-                        if joueur_.buffer_clavier:
-                            contenu = joueur_.pop_clavier_buffer()
-                            if contenu == reglages.CHAINE_COMMENCER:
-                                joueur_.est_pret = True
-
             if carte_.partie_commencee():
                 break
+
+            nouvelle_connexion = next(ecouteur_nouvelles_connexions)
+
+            if nouvelle_connexion:
+                joueur_ = jeu.Joueur(carte_)
+
+                if joueur_.position:
+
+                    joueur_.connecter(nouvelle_connexion)
+                    print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
+
+                    carte_.joueurs.append(joueur_)
+
+                    connexion_ecoute.broadcast(
+                        "Bienvenue au nouveau joueur sur le port {}\n{}".format(
+                             joueur_.port, carte_.afficher(joueur_.position.index_)
+                        ),
+                        carte_.connexions_des_clients()
+                    )
+
+                else:
+                    print("impossible d'ajouter un nouveau joueur")
+
+            if carte_.joueurs:
+
+                messages_clients = connexion_ecoute.clients_a_lire(carte_.sockets_des_clients())
+                if messages_clients:
+                    for sock, message in messages_clients.items():
+                        carte_.joueurs[carte_.joueurs.index(sock)].buffer.write(message)
+
+                joueurs_bavards = [_ for _ in carte_.joueurs if _.buffer]
+                for joueur in joueurs_bavards:
+                    ct = joueur.buffer.read()
+                    print(joueur.port, ": ", ct)
+                    if ct == reglages.CHAINE_COMMENCER:
+                        joueur.est_pret = True
+
 
         print(carte_.afficher())
 

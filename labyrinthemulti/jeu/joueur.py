@@ -1,6 +1,6 @@
 import jeu
 import random
-
+import libs.lib_reseau as lib_res
 
 class Joueur:
     def __init__(self, carte):
@@ -11,7 +11,6 @@ class Joueur:
 
         self.serveur = None
 
-        print("On ajoute un joueur sur le port " + str(self.port))
         self.carte = carte
         self.position = None
 
@@ -19,7 +18,7 @@ class Joueur:
 
         self.position = random.choice(list(self.carte.departs()))
 
-        self.buffer_clavier = bytes()
+        self.buffer = lib_res.Buffer()
 
     def __eq__(self, other):
         return self.connexion.socket is other
@@ -35,8 +34,3 @@ class Joueur:
         self.port = None
 
         self.serveur = None
-
-    def pop_clavier_buffer(self):
-        rv = self.buffer_clavier.decode("utf-8")
-        self.buffer_clavier = bytes()
-        return rv
