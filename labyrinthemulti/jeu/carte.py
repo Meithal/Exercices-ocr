@@ -36,6 +36,9 @@ class Carte:
         self.position_par_defaut = self.emplacements[self.position_par_defaut]
 
         self.joueurs = []
+        self.joueur_actif = None
+        self.debut_du_jeu = 0
+        self.debut_du_tour = 0
 
     # def ajoute_joueur(self, socket):
     #     if self.partie_commencee:
@@ -91,3 +94,6 @@ class Carte:
 
     def sockets_des_clients(self):
         return (c.connexion.socket for c in self.joueurs)
+
+    def prochain_joueur(self):
+        return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]

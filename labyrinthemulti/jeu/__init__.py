@@ -11,10 +11,10 @@ SELECT_SOCKET_OUTPUT = 1
 SELECT_SOCKET_EXCEPT = 2
 
 
-def execute_input(i, carte_):
+def execute_input(i, ct):
     """
     Modifie l'état du jeu en fonction de l'input demandé
-    :param carte_: La carte
+    :param ct: La carte
     :param i: une chaine de caractères demandée par le joueur
     :return: True, le jeu continue, False, le jeu s'arrête
     """
@@ -39,15 +39,16 @@ def execute_input(i, carte_):
     for step in range(repetitions):  # on répete le deplacement autant de fois que demande
 
         destination = {
-            'N': carte_.position_par_defaut.index_ - carte_.taille_ligne,
-            'S': carte_.position_par_defaut.index_ + carte_.taille_ligne,
-            'E': carte_.position_par_defaut.index_ + 1,
-            'O': carte_.position_par_defaut.index_ - 1
+            'N': ct.joueur_actif.position.index_ - ct.taille_ligne,
+            'S': ct.joueur_actif.position.index_ + ct.taille_ligne,
+            'E': ct.joueur_actif.position.index_ + 1,
+            'O': ct.joueur_actif.position.index_ - 1
         }[direction]  # en fonction de la direction demandée, la destination sera differente
 
-        cible = jeu.emplacement.Emplacement(destination, carte_.taille_ligne)
+        cible = ct.emplacements[destination]
+            # jeu.emplacement.Emplacement(destination, ct.taille_ligne, ct)
 
-        if not cible.est_valide(depuis=carte_.position_par_defaut):
+        if not cible.est_valide(depuis=ct.joueur_actif.position):
             return True  # si l'emplacement cible ne permet pas de s'y trouver, on quitte la procédure ici
 
         if cible.fait_gagner():
@@ -55,16 +56,18 @@ def execute_input(i, carte_):
             os.unlink(jeu.reglages.SAVE_FILE)
             return False
 
-        carte_.position_par_defaut = cible  # l'état du jeu est modifié ici
+        ct.joueur_actif.position = cible  # l'état du jeu est modifié ici
 
         if step < repetitions - 1:
-            carte_.afficher()  # on affiche les déplacements intermédiaires
+            ct.afficher()  # on affiche les déplacements intermédiaires
 
     return True
 
 
 def serveur():
     """La boucle principale du jeu"""
+
+    import time
 
     cartes = []  # une liste de nom de cartes
 
@@ -83,14 +86,24 @@ def serveur():
         else:
             print("Ce n'est pas valide")
 
-    carte_ = jeu.Carte(cartes[selected_carte])  # l'instance de Carte où on joue
+    ct = jeu.Carte(cartes[selected_carte])  # l'instance de Carte où on joue
 
-    print(carte_.afficher())
+    print(ct.afficher())
+
+    def passer_au_prochain_joueur(ct):
+        ct.joueur_actif = ct.prochain_joueur()
+        ct.debut_du_tour = time.time()
+        connexion_ecoute.broadcast(
+            "C'est au joueur {}  de jouer".format(ct.joueurs.index(ct.joueur_actif) + 1),
+            ct.connexions_des_clients()
+        )
+        for jr in ct.joueurs:
+            jr.connexion.envoyer(ct.afficher(ct.joueur_actif.position.index_))
 
     with lib_reseau.ConnexionEnTantQueServeur(
         '',
         jeu.reglages.PORT_CONNEXION,
-        carte_,
+        ct,
         "Connexion principale"
     ) as connexion_ecoute:
 
@@ -102,56 +115,62 @@ def serveur():
 
         while True:
 
-            if carte_.partie_commencee():
-                break
+            if not ct.partie_commencee():
+                nouvelle_connexion = next(ecouteur_nouvelles_connexions)
+                if nouvelle_connexion:
+                    jr = jeu.Joueur(ct)
+                    if jr.position:
+                        jr.connecter(nouvelle_connexion)
+                        print("Nouveau joueur ajouté à la carte sur port {}".format(jr.port))
+                        ct.joueurs.append(jr)
+                        ct.joueur_actif = jr
+                        connexion_ecoute.broadcast(
+                            "Bienvenue au nouveau joueur sur le port {}".format(
+                                 jr.port
+                            ),
+                            ct.connexions_des_clients()
+                        )
+                        jr.connexion.envoyer(ct.afficher(jr.position.index_))
+                    else:
+                        print("impossible d'ajouter un nouveau joueur")
 
-            nouvelle_connexion = next(ecouteur_nouvelles_connexions)
-
-            if nouvelle_connexion:
-                joueur_ = jeu.Joueur(carte_)
-
-                if joueur_.position:
-
-                    joueur_.connecter(nouvelle_connexion)
-                    print("Nouveau joueur ajouté à la carte sur port {}".format(joueur_.port))
-
-                    carte_.joueurs.append(joueur_)
-
-                    connexion_ecoute.broadcast(
-                        "Bienvenue au nouveau joueur sur le port {}\n{}".format(
-                             joueur_.port, carte_.afficher(joueur_.position.index_)
-                        ),
-                        carte_.connexions_des_clients()
-                    )
-
-                else:
-                    print("impossible d'ajouter un nouveau joueur")
-
-            if carte_.joueurs:
-
-                messages_clients = connexion_ecoute.clients_a_lire(carte_.sockets_des_clients())
+            if ct.joueurs:
+                messages_clients = connexion_ecoute.clients_a_lire(ct.sockets_des_clients())
                 if messages_clients:
                     for sock, message in messages_clients.items():
-                        carte_.joueurs[carte_.joueurs.index(sock)].buffer.write(message)
+                        ct.joueurs[ct.joueurs.index(sock)].buffer.write(message)
 
-                joueurs_bavards = [_ for _ in carte_.joueurs if _.buffer]
-                for joueur in joueurs_bavards:
-                    ct = joueur.buffer.read()
-                    print(joueur.port, ": ", ct)
-                    if ct == reglages.CHAINE_COMMENCER:
-                        joueur.est_pret = True
+                    joueurs_bavards = [_ for _ in ct.joueurs if _.buffer]
+                    for _jr in joueurs_bavards:
+                        buffer = _jr.buffer.read()
+                        print(_jr.port, ": ", buffer)
+                        if not ct.partie_commencee():
+                            if buffer == reglages.CHAINE_COMMENCER:
+                                _jr.est_pret = True
+                                ct.debut_du_jeu = time.time()
+                        elif _jr is ct.joueur_actif:
+                            if execute_input(buffer, ct):
+                                for __jr in ct.joueurs:
+                                    __jr.connexion.envoyer(
+                                        "Le joueur {} s'est déplacé.\n{}".format(
+                                            ct.joueurs.index(ct.joueur_actif) + 1,
+                                            ct.afficher(__jr.position.index_)
+                                        )
+                                    )
+                                passer_au_prochain_joueur(ct)
+                            else:
+                                connexion_ecoute.broadcast(
+                                    "Le joueur {} a gagné !".format(
+                                        ct.joueurs.index(ct.joueur_actif) + 1
+                                    ),
+                                    ct.connexions_des_clients()
+                                )
+                                return
 
+            if ct.partie_commencee():
 
-        print(carte_.afficher())
-
-        while not carte_.partie_gagnee:
-            print("C'est au joueur {}  de jouer".format(carte_.joueur_actif))
-
-            connexion_ecoute.broadcast(
-                "C'est au joueur {}  de jouer".format(carte_.joueur_actif),
-                carte_.connexions_des_clients()
-            )
-
+                if time.time() > ct.debut_du_tour + jeu.reglages.SECONDES_PAR_TOUR:
+                    passer_au_prochain_joueur(ct)
 
     # while execute_input(input("Veuillez entrer une commande (Q: Quitter, N/S/E/O(2-9) : Se diriger\n"), carte):
     #     carte.affiche_serveur()
@@ -185,17 +204,24 @@ def client():
             import time
             while True:
                 time.sleep(1)
-                next(connexion.ecoute())
+                try:
+                    next(connexion.ecoute())
+                except Exception as e:
+                    print(e)
+                    return
                 if connexion.contenu_a_afficher:
                     print(connexion.pop_contenu_a_afficher(),
                           "\nLe serveur a envoyé le contenu ci dessus. Si vous etiez en train de taper",
                           "quelque chose veuillez recommencer.",
                           "\nvvv")
 
-        threading.Thread(target=display).start()  # ce thread affiche le contenu que le serveur envoi
+        cli_thread = threading.Thread(target=display)
+        cli_thread.start()  # ce thread affiche le contenu que le serveur envoi
 
         while True:
-
             buffer = input("> ")
+            if not cli_thread.is_alive():
+                print("Liaison avec le serveur perdue.")
+                return
             print("Ce que vous avez ecrit: " + buffer)
             connexion.envoyer(buffer)

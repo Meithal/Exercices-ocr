@@ -1,10 +1,9 @@
 # Cette librairie encapsule le module socket pour pouvoir envoyer des donnees sans devoir les convertir
 # vers et depuis des bytes, et fournit un context manager pour facilement ouvrir et fermer une connexion.
-# (c) Ivo Talvet 2018
+# (c) Meithal 2018
 
 import socket
 import select
-import sys
 import traceback
 
 
@@ -29,7 +28,10 @@ class Connexion:
     def envoyer(self, message, verbose=False):
         if verbose:
             print("envoi: {}, {}".format(self.description, message))
-        self.socket.send(bytes(message, encoding='utf-8'))
+        try:
+            self.socket.send(bytes(message, encoding='utf-8'))
+        except Exception as e:
+            raise e
 
 
 class ConnexionEnTantQueServeur(Connexion):
@@ -78,7 +80,8 @@ class ConnexionEnTantQueServeur(Connexion):
             connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
             if len(connexions_demandees):
                 yield accueille_nouveaux_coro.send(connexions_demandees)
-            yield None
+            else:
+                yield None
 
     def clients_a_lire(self, clients):
         try:
@@ -99,7 +102,7 @@ class ConnexionEnTantQueServeur(Connexion):
     @staticmethod
     def broadcast(message, cibles):
         for connexion in cibles:
-            connexion.envoyer(message)
+            connexion.envoyer(message + "\n")
 
 
 class ConnexionDepuisClient(Connexion):
@@ -135,9 +138,8 @@ class ConnexionEnTantQueClient(Connexion):
                 print("Entree recue")
                 try:
                     self.contenu_a_afficher.append(entrees[0].recv(1024))
-                except ConnectionResetError:
-                    sys.exit("connexion serveur perdue")
-
+                except Exception as e:
+                    raise e
             yield self.contenu_a_afficher
 
     def pop_contenu_a_afficher(self):
