@@ -20,6 +20,9 @@ class Joueur:
 
         self.buffer = lib_res.Buffer()
 
+    def __hash__(self):
+        return self.position.index_
+
     def __eq__(self, other):
         return self.connexion.socket is other
 

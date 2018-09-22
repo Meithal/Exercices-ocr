@@ -114,7 +114,7 @@ class ConnexionEnTantQueClient(Connexion):
 
     def __init__(self, addresse_loc, port_loc, description=""):
         super().__init__(addresse_loc, port_loc, description)
-        self.contenu_a_afficher = []
+        self.contenu_a_afficher = Buffer()
         self.attend_entree = True
 
     def __enter__(self):
@@ -137,14 +137,13 @@ class ConnexionEnTantQueClient(Connexion):
             if entrees:
                 print("Entree recue")
                 try:
-                    self.contenu_a_afficher.append(entrees[0].recv(1024))
+                    ct = entrees[0].recv(1024)
+                    if not ct:
+                        raise Exception("Le serveur a envoyé une chaine vide, certainement un crash est arrivé")
+                    self.contenu_a_afficher.write(ct)
                 except Exception as e:
                     raise e
             yield self.contenu_a_afficher
-
-    def pop_contenu_a_afficher(self):
-        ct = self.contenu_a_afficher.pop()
-        return ct.decode("utf-8")
 
 
 class Buffer:

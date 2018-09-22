@@ -61,19 +61,19 @@ class Carte:
         """
         idx_joueur = 1
         string = ""
-        for (i, c) in enumerate(self.flux):
-            if i in [joueur.position.index_ for joueur in self.joueurs]:
+        for e in self.emplacements:
+            if e.index_ in [joueur.position.index_ for joueur in self.joueurs]:
                 if pos_joueur == -1:
                     string += str(idx_joueur)
                     idx_joueur += 1
                 else:
-                    if pos_joueur == i:
+                    if pos_joueur == e.index_:
                         string += "X"
                     else:
                         string += "x"
             else:
-                string += c
-            if (i + 1) % self.taille_ligne == 0:
+                string += e.contenu
+            if (e.index_ + 1) % self.taille_ligne == 0:
                 string += '\n'
         string += '\n'
         return string
@@ -97,3 +97,6 @@ class Carte:
 
     def prochain_joueur(self):
         return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]
+
+    def joueurs_bavards(self):
+        return {_ for _ in self.joueurs if _.buffer}
