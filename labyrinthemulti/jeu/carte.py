@@ -1,5 +1,5 @@
-import jeu
-
+import jeu.reglages as regles
+import jeu.emplacement as emplacement
 
 class Carte:
     """
@@ -26,11 +26,11 @@ class Carte:
         self.nom = nom
         self.taille_ligne = len(self.flux.splitlines()[0].strip())
         self.flux = self.flux.replace('\n', '').replace('\r', '').strip()
-        self.position_par_defaut = self.flux.index(jeu.reglages.CARACTERE_JOUEUR)
-        self.flux = self.flux.replace(jeu.reglages.CARACTERE_JOUEUR, ' ')
+        self.position_par_defaut = self.flux.index(regles.CARACTERE_JOUEUR)
+        self.flux = self.flux.replace(regles.CARACTERE_JOUEUR, ' ')
 
         self.emplacements = [
-            jeu.Emplacement(index, value, self) for index, value in enumerate(self.flux)
+            emplacement.Emplacement(index, value, self) for index, value in enumerate(self.flux)
         ]
 
         self.position_par_defaut = self.emplacements[self.position_par_defaut]
@@ -90,7 +90,7 @@ class Carte:
                 yield emplacement
 
     def connexions_des_clients(self):
-        return (c.connexion for c in self.joueurs)
+        return (j.connexion for j in self.joueurs if j.connexion)
 
     def sockets_des_clients(self):
         return (c.connexion.socket for c in self.joueurs)

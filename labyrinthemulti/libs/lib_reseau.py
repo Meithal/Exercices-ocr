@@ -25,13 +25,17 @@ class Connexion:
         """Concerne les socket qu'on créé nous même, avec 'with'."""
         self.socket.close()
 
+    def __bool__(self):
+        return self.socket.fileno() != -1
+
     def envoyer(self, message, verbose=False):
         if verbose:
             print("envoi: {}, {}".format(self.description, message))
         try:
             self.socket.send(bytes(message, encoding='utf-8'))
         except Exception as e:
-            raise e
+            self.socket.close()
+            # raise e
 
 
 class ConnexionEnTantQueServeur(Connexion):
