@@ -47,13 +47,5 @@ class Emplacement:
             return True
         return False
 
-    def distance_vers_sortie_plus_proche(self):
-        plus_petite_distance = 0
-        for emplacement in self.carte.emplacements:
-            if emplacement.contenu in jeu.reglages.VICTORY_CHARS:
-                distance = abs(emplacement.colonne - self.colonne) + abs(emplacement.ligne - self.ligne)
-                if not plus_petite_distance or distance < plus_petite_distance:
-                    plus_petite_distance = distance
-        return plus_petite_distance
 
     # On peut rajouter d'autres fonctions ici comme "fait changer d'étage"

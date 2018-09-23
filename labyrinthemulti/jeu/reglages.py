@@ -1,4 +1,3 @@
-SAVE_FILE = 'cur.txt'  # le nom du fichier de sauvegarde
 HOTE_CONNEXION = 'localhost'
 PORT_CONNEXION = 12800
 
@@ -11,4 +10,3 @@ CARACTERE_JOUEUR = 'X'  # ce caractere sera recherche dans le flux de la carte p
 LONGUEUR_MAX_INPUT = 100
 
 CHAINE_COMMENCER = "c"
-SECONDES_PAR_TOUR = 15  # combien de temps dure un tour

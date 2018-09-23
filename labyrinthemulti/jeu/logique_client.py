@@ -8,7 +8,7 @@ import jeu.reglages as regles
 
 def client():
     """
-    Pour l'instant il s'agit d'un simple terminal qui affiche et envoie des donnees, et n'initialise pas d'objet carte
+    Un terminal qui affiche et envoie des donnees, sans utiliser d'autres objets du jeu
     :return:
     """
 

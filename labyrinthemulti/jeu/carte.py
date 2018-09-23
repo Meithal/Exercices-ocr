@@ -40,17 +40,6 @@ class Carte:
         self.debut_du_jeu = 0
         self.debut_du_tour = 0
 
-    # def ajoute_joueur(self, socket):
-    #     if self.partie_commencee:
-    #         return False
-    #     nouveau_joueur = jeu.joueur.Joueur(socket)
-    #     if not nouveau_joueur.position:
-    #         print("Il n'y a plus assez de place pour ajouter un joueur sur cette carte")
-    #         return -1
-    #     else:
-    #         self.joueurs.append(nouveau_joueur)
-    #         return len(self.joueurs) - 1
-
     def partie_commencee(self):
         return any([joueur.est_pret for joueur in self.joueurs])
 
@@ -82,18 +71,24 @@ class Carte:
         for joueur in self.joueurs:
             yield joueur.position
 
-    def departs(self):
+    def departs_valides(self):
         for emplacement in self.emplacements:
-            if emplacement.est_valide() \
-                    and emplacement not in self.positions_occupees() \
-                    and emplacement.distance_vers_sortie_plus_proche() > 5:
+            if emplacement.est_valide() and emplacement not in self.positions_occupees():
                 yield emplacement
 
+    def kick_deconnectes(self):
+        """Kick de la carte les joueurs ayant perdu la connexion"""
+        for joueur in (j for j in self.joueurs if not j.connexion):
+            print("Perdu la liaison avec %s" % joueur.port)
+            self.joueurs.remove(joueur)
+
     def connexions_des_clients(self):
+        self.kick_deconnectes()
         return (j.connexion for j in self.joueurs if j.connexion)
 
     def sockets_des_clients(self):
-        return (c.connexion.socket for c in self.joueurs)
+        self.kick_deconnectes()
+        return (j.connexion.socket for j in self.joueurs if j.connexion)
 
     def prochain_joueur(self):
         return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]

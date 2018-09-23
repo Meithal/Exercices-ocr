@@ -1,4 +1,3 @@
-import jeu
 import random
 import libs.lib_reseau as lib_res
 
@@ -16,7 +15,7 @@ class Joueur:
 
         self.est_pret = False
 
-        self.position = random.choice(list(self.carte.departs()))
+        self.position = random.choice(list(self.carte.departs_valides()))
 
         self.buffer = lib_res.Buffer()
 

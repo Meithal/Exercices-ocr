@@ -1,6 +1,6 @@
 # Cette librairie encapsule le module socket pour pouvoir envoyer des donnees sans devoir les convertir
 # vers et depuis des bytes, et fournit un context manager pour facilement ouvrir et fermer une connexion.
-# (c) Meithal 2018
+# (c) https://github.com/Meithal 2018
 
 import socket
 import select
@@ -18,32 +18,41 @@ class Connexion:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __del__(self):
-        """Concerne les socket automatiquement créés lorsqu'un client se connecte."""
-        self.socket.close()
+        """Lorsque cette connexion vient d'un select, on ne peut pas lui associer un context manager.
+           Donc on capture notre fermeture lorsque le garbage collector nous supprime. Mais une connexion
+           crée via un context manager finira aussi dans le garbage collector donc on appelle self.__bool__
+           pour vérifier que le socket n'est pas déjà fermé"""
+        if self:
+            self.socket.close()
+        print("%s supprimée par le ramasse-miettes" % self.description)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Concerne les socket qu'on créé nous même, avec 'with'."""
+        if exc_type:
+            print("Exception inhabituelle : %s" % exc_val)
+            traceback.print_tb(exc_tb)
+
+        # plutot que d'attendre que la variable associée au bloc 'with' soit récupérée par le garbage collector
+        # ou explicitement 'del', on ferme la connexion dès la sortie du bloc 'with'
         self.socket.close()
 
     def __bool__(self):
+        """On est "Truthy" lorsque notre connexion est active"""
         return self.socket.fileno() != -1
 
-    def envoyer(self, message, verbose=False):
-        if verbose:
-            print("envoi: {}, {}".format(self.description, message))
+    def envoyer(self, message):
         try:
             self.socket.send(bytes(message, encoding='utf-8'))
         except Exception as e:
-            self.socket.close()
-            # raise e
+            print(e)
+            self.socket.close() # on devient "Falsy"
 
 
 class ConnexionEnTantQueServeur(Connexion):
 
-    def __init__(self, addresse_loc, port_loc, carte, description=''):
+    def __init__(self, addresse_loc, port_loc, description=''):
         super().__init__(addresse_loc, port_loc, description)
 
-        self.carte = carte
 
     def __enter__(self):
 
@@ -55,11 +64,7 @@ class ConnexionEnTantQueServeur(Connexion):
         return self
 
     def __exit__(self, type_exception, valeur_exception, traceback_exception):
-        if type_exception:
-            print("Exception inhabituelle : %s" % valeur_exception)
-            traceback.print_tb(traceback_exception)
-        else:
-            print("Sortie de la connexion serveur")
+        print("Fermeture de la connexion serveur")
 
         super().__exit__(type_exception, valeur_exception, traceback_exception)
 
@@ -135,6 +140,8 @@ class ConnexionEnTantQueClient(Connexion):
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("Fermeture de la connexion cliente")
 
+        super().__exit__(exc_type, exc_val, exc_tb)
+
     def ecoute(self):
         while True:
             entrees = select.select([self.socket], [], [], 0.05)[0]
@@ -143,7 +150,7 @@ class ConnexionEnTantQueClient(Connexion):
                 try:
                     ct = entrees[0].recv(1024)
                     if not ct:
-                        raise Exception("Le serveur a envoyé une chaine vide, certainement un crash est arrivé")
+                        raise Exception("Le serveur distant ne répond plus.")
                     self.contenu_a_afficher.write(ct)
                 except Exception as e:
                     raise e

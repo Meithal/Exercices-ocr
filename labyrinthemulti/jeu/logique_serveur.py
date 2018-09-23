@@ -8,9 +8,9 @@ from libs import lib_reseau
 
 
 class InstructionCheck(enum.Enum):
-    OK = 1
-    NOT_OK = 2
-    END_GAME = 3
+    ACTION_VALIDE = 1
+    DOIT_RECOMMENCER = 2
+    A_GAGNE = 3
 
 
 def execute_input(i, ct):
@@ -24,7 +24,7 @@ def execute_input(i, ct):
     i = i[:regles.LONGUEUR_MAX_INPUT].strip().lower()
 
     if not i:
-        return InstructionCheck.NOT_OK
+        return InstructionCheck.DOIT_RECOMMENCER
 
     deplacement = False
 
@@ -35,10 +35,13 @@ def execute_input(i, ct):
         deplacement = True
 
     if direction not in 'nseo':
-        return InstructionCheck.NOT_OK
+        return InstructionCheck.DOIT_RECOMMENCER
 
+    repetitions = 1
+    if len(i) == 2 and i[1] in '23456789':
+        repetitions = int(i[1])
 
-    if not deplacement:
+    for step in range(repetitions):  # on répete le deplacement autant de fois que demande
 
         destination = {
             'n': ct.joueur_actif.position.index_ - ct.taille_ligne,
@@ -49,48 +52,30 @@ def execute_input(i, ct):
 
         cible = ct.emplacements[destination]
 
-        if cible.contenu not in {regles.CARACTERE_MUR, regles.CARACTERE_PORTE}:
-            return InstructionCheck.NOT_OK
+        if not deplacement:
 
-        if instruction == 'm':
-            cible.contenu = regles.CARACTERE_MUR
-        elif instruction == 'p':
-            cible.contenu = regles.CARACTERE_PORTE
+            if cible.contenu not in {regles.CARACTERE_MUR, regles.CARACTERE_PORTE}:
+                return InstructionCheck.DOIT_RECOMMENCER
 
-        return InstructionCheck.OK
+            if instruction == 'm':
+                cible.contenu = regles.CARACTERE_MUR
+            elif instruction == 'p':
+                cible.contenu = regles.CARACTERE_PORTE
 
-    elif deplacement:
-        repetitions = 1
-        if len(i) == 2 and i[1] in '23456789':
-            repetitions = int(i[1])
+            return InstructionCheck.ACTION_VALIDE
 
-        print(repetitions)
+        if not cible.est_valide(depuis=ct.joueur_actif.position):
+            return InstructionCheck.ACTION_VALIDE  # si on cogne contre un mur, le tour se finit
 
-        for step in range(repetitions):  # on répete le deplacement autant de fois que demande
+        if cible.fait_gagner():
+            return InstructionCheck.A_GAGNE
 
-            destination = {
-                'n': ct.joueur_actif.position.index_ - ct.taille_ligne,
-                's': ct.joueur_actif.position.index_ + ct.taille_ligne,
-                'e': ct.joueur_actif.position.index_ + 1,
-                'o': ct.joueur_actif.position.index_ - 1
-            }[direction]  # en fonction de la direction demandée, la destination sera differente
+        ct.joueur_actif.position = cible  # l'état du jeu est modifié ici
 
-            cible = ct.emplacements[destination]
+        if step < repetitions - 1:
+            ct.afficher()  # on affiche les déplacements intermédiaires
 
-            if not cible.est_valide(depuis=ct.joueur_actif.position):
-                return InstructionCheck.OK  # si on cogne contre un mur, le tour se finit
-
-            if cible.fait_gagner():
-                print("Vous avez gagné !")
-                os.unlink(regles.SAVE_FILE)
-                return InstructionCheck.END_GAME
-
-            ct.joueur_actif.position = cible  # l'état du jeu est modifié ici
-
-            if step < repetitions - 1:
-                ct.afficher()  # on affiche les déplacements intermédiaires
-
-    return InstructionCheck.OK
+    return InstructionCheck.ACTION_VALIDE
 
 
 def serveur():
@@ -115,9 +100,9 @@ def serveur():
         else:
             print("Ce n'est pas valide")
 
-    ct = Carte(cartes[selected_carte])  # l'instance de Carte où on joue
+    carte = Carte(cartes[selected_carte])  # l'instance de Carte où on joue
 
-    print(ct.afficher())
+    print(carte.afficher())
 
     def passer_au_prochain_joueur(ct):
         ct.joueur_actif = ct.prochain_joueur()
@@ -132,7 +117,6 @@ def serveur():
     with lib_reseau.ConnexionEnTantQueServeur(
         '',
         regles.PORT_CONNEXION,
-        ct,
         "Connexion principale"
     ) as connexion_ecoute:
 
@@ -144,62 +128,58 @@ def serveur():
 
         while True:
 
-            if not ct.partie_commencee():
+            if not carte.partie_commencee():
                 nouvelle_connexion = next(ecouteur_nouvelles_connexions)
                 if nouvelle_connexion:
-                    jr = Joueur(ct)
-                    if jr.position:
-                        jr.connecter(nouvelle_connexion)
-                        print("Nouveau joueur ajouté à la carte sur port {}".format(jr.port))
-                        ct.joueurs.append(jr)
-                        ct.joueur_actif = jr
+                    _joueur = Joueur(carte)
+                    if _joueur.position:
+                        _joueur.connecter(nouvelle_connexion)
+                        print("Nouveau joueur ajouté à la carte sur port {}".format(_joueur.port))
+                        carte.joueurs.append(_joueur)
+                        carte.joueur_actif = _joueur
                         connexion_ecoute.broadcast(
                             "Bienvenue au nouveau joueur sur le port {}".format(
-                                 jr.port
+                                 _joueur.port
                             ),
-                            ct.connexions_des_clients()
+                            carte.connexions_des_clients()
                         )
-                        jr.connexion.envoyer(ct.afficher(jr.position.index_))
+                        _joueur.connexion.envoyer(carte.afficher(_joueur.position.index_))
                     else:
                         print("impossible d'ajouter un nouveau joueur")
 
-            if ct.joueurs:
-                messages_clients = connexion_ecoute.clients_a_lire(ct.sockets_des_clients())
+            if carte.joueurs:
+                messages_clients = connexion_ecoute.clients_a_lire(carte.sockets_des_clients())
                 if messages_clients:
                     for sock, message in messages_clients.items():
-                        ct.joueurs[ct.joueurs.index(sock)].buffer.write(message)
+                        carte.joueurs[carte.joueurs.index(sock)].buffer.write(message)
 
-                    for _jr in ct.joueurs_bavards():
-                        buffer = _jr.buffer.read()
-                        print(_jr.port, ": ", buffer)
-                        if not ct.partie_commencee():
+                    for _joueur in carte.joueurs_bavards():
+                        buffer = _joueur.buffer.read()
+                        print(_joueur.port, ": ", buffer)
+                        if not carte.partie_commencee():
                             if buffer == regles.CHAINE_COMMENCER:
-                                _jr.est_pret = True
-                                ct.debut_du_jeu = time.time()
-                        elif _jr is ct.joueur_actif:
-                            status_instruction = execute_input(buffer, ct)
-                            if status_instruction == InstructionCheck.OK:
-                                for __jr in ct.joueurs:
-                                    __jr.connexion.envoyer(
+                                _joueur.est_pret = True
+                                carte.debut_du_jeu = time.time()
+                                passer_au_prochain_joueur(carte)
+                        elif _joueur is carte.joueur_actif:
+                            status_instruction = execute_input(buffer, carte)
+                            if status_instruction == InstructionCheck.ACTION_VALIDE:
+                                for __joueur in carte.joueurs:
+                                    __joueur.connexion.envoyer(
                                         "Le joueur {} s'est déplacé.\n{}".format(
-                                            ct.joueurs.index(ct.joueur_actif) + 1,
-                                            ct.afficher(__jr.position.index_)
+                                            carte.joueurs.index(carte.joueur_actif) + 1,
+                                            carte.afficher(__joueur.position.index_)
                                         )
                                     )
-                                passer_au_prochain_joueur(ct)
-                            elif status_instruction == InstructionCheck.NOT_OK:
-                                _jr.connexion.envoyer("Mouvement illégal, veuillez recommencer")
-                            elif status_instruction == InstructionCheck.END_GAME:
+                                passer_au_prochain_joueur(carte)
+                            elif status_instruction == InstructionCheck.DOIT_RECOMMENCER:
+                                _joueur.connexion.envoyer("Mouvement illégal, veuillez recommencer")
+                            elif status_instruction == InstructionCheck.A_GAGNE:
                                 connexion_ecoute.broadcast(
                                     "Le joueur {} a gagné !".format(
-                                        ct.joueurs.index(ct.joueur_actif) + 1
+                                        carte.joueurs.index(carte.joueur_actif) + 1
                                     ),
-                                    ct.connexions_des_clients()
+                                    carte.connexions_des_clients()
                                 )
                                 print("Merci d'avoir joué")
                                 return
-
-            if ct.partie_commencee():
-
-                if time.time() > ct.debut_du_tour + regles.SECONDES_PAR_TOUR:
-                    passer_au_prochain_joueur(ct)
