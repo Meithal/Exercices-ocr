@@ -1,6 +1,7 @@
 import jeu.reglages as regles
 import jeu.emplacement as emplacement
 
+
 class Carte:
     """
     L'aire de jeu.
@@ -8,7 +9,7 @@ class Carte:
     Pour changer de niveau ou simplement commencer le jeu, il faut appeller load_level().
     """
 
-    def __init__(self, nom):
+    def __init__(self, nom, serveur):
         """Charge la carte donnée depuis un nom de fichier, positionne le joueur.
 
         Calcule la longueur d'une ligne, enlève tous les saut des lignes pour avoir un flux d'octets continu.
@@ -35,10 +36,9 @@ class Carte:
 
         self.position_par_defaut = self.emplacements[self.position_par_defaut]
 
+        self.serveur = serveur
         self.joueurs = []
         self.joueur_actif = None
-        self.debut_du_jeu = 0
-        self.debut_du_tour = 0
 
     def partie_commencee(self):
         return any([joueur.est_pret for joueur in self.joueurs])
@@ -94,4 +94,7 @@ class Carte:
         return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]
 
     def joueurs_bavards(self):
-        return {_ for _ in self.joueurs if _.buffer}
+        messages_clients = self.serveur.clients_a_lire(self.sockets_des_clients())
+        if messages_clients:
+            for sock, message in messages_clients.items():
+                yield self.joueurs[self.joueurs.index(sock)], message

@@ -106,13 +106,12 @@ def serveur():
 
     def passer_au_prochain_joueur(ct):
         ct.joueur_actif = ct.prochain_joueur()
-        ct.debut_du_tour = time.time()
         connexion_ecoute.broadcast(
             "C'est au joueur {}  de jouer".format(ct.joueurs.index(ct.joueur_actif) + 1),
             ct.connexions_des_clients()
         )
         for jr in ct.joueurs:
-            jr.connexion.envoyer(ct.afficher(ct.joueur_actif.position.index_))
+            jr.message(ct.afficher(ct.joueur_actif.position.index_))
 
     with lib_reseau.ConnexionEnTantQueServeur(
         '',
@@ -131,55 +130,48 @@ def serveur():
             if not carte.partie_commencee():
                 nouvelle_connexion = next(ecouteur_nouvelles_connexions)
                 if nouvelle_connexion:
-                    _joueur = Joueur(carte)
-                    if _joueur.position:
-                        _joueur.connecter(nouvelle_connexion)
-                        print("Nouveau joueur ajouté à la carte sur port {}".format(_joueur.port))
-                        carte.joueurs.append(_joueur)
-                        carte.joueur_actif = _joueur
+                    nouveau_joueur = Joueur(carte)
+                    if nouveau_joueur.position:
+                        nouveau_joueur.connecter(nouvelle_connexion)
+                        print("Nouveau joueur ajouté à la carte sur port {}".format(nouveau_joueur.port))
+                        carte.joueurs.append(nouveau_joueur)
+                        carte.joueur_actif = nouveau_joueur
                         connexion_ecoute.broadcast(
                             "Bienvenue au nouveau joueur sur le port {}".format(
-                                 _joueur.port
+                                 nouveau_joueur.port
                             ),
                             carte.connexions_des_clients()
                         )
-                        _joueur.connexion.envoyer(carte.afficher(_joueur.position.index_))
+                        nouveau_joueur.message(nouveau_joueur.affiche_carte())
                     else:
                         print("impossible d'ajouter un nouveau joueur")
 
             if carte.joueurs:
-                messages_clients = connexion_ecoute.clients_a_lire(carte.sockets_des_clients())
-                if messages_clients:
-                    for sock, message in messages_clients.items():
-                        carte.joueurs[carte.joueurs.index(sock)].buffer.write(message)
-
-                    for _joueur in carte.joueurs_bavards():
-                        buffer = _joueur.buffer.read()
-                        print(_joueur.port, ": ", buffer)
-                        if not carte.partie_commencee():
-                            if buffer == regles.CHAINE_COMMENCER:
-                                _joueur.est_pret = True
-                                carte.debut_du_jeu = time.time()
-                                passer_au_prochain_joueur(carte)
-                        elif _joueur is carte.joueur_actif:
-                            status_instruction = execute_input(buffer, carte)
-                            if status_instruction == InstructionCheck.ACTION_VALIDE:
-                                for __joueur in carte.joueurs:
-                                    __joueur.connexion.envoyer(
-                                        "Le joueur {} s'est déplacé.\n{}".format(
-                                            carte.joueurs.index(carte.joueur_actif) + 1,
-                                            carte.afficher(__joueur.position.index_)
-                                        )
+                for joueur, message in carte.joueurs_bavards():
+                    print(joueur.port, ": ", message)
+                    if not carte.partie_commencee():
+                        if message == regles.CHAINE_COMMENCER:
+                            joueur.est_pret = True
+                            passer_au_prochain_joueur(carte)
+                    elif joueur is carte.joueur_actif:
+                        status_instruction = execute_input(message, carte)
+                        if status_instruction == InstructionCheck.ACTION_VALIDE:
+                            for __joueur in carte.joueurs:
+                                __joueur.message(
+                                    "Le joueur %d s'est déplacé.\n%s" % (
+                                        carte.joueurs.index(carte.joueur_actif) + 1,
+                                        carte.afficher(__joueur.position.index_)
                                     )
-                                passer_au_prochain_joueur(carte)
-                            elif status_instruction == InstructionCheck.DOIT_RECOMMENCER:
-                                _joueur.connexion.envoyer("Mouvement illégal, veuillez recommencer")
-                            elif status_instruction == InstructionCheck.A_GAGNE:
-                                connexion_ecoute.broadcast(
-                                    "Le joueur {} a gagné !".format(
-                                        carte.joueurs.index(carte.joueur_actif) + 1
-                                    ),
-                                    carte.connexions_des_clients()
                                 )
-                                print("Merci d'avoir joué")
-                                return
+                            passer_au_prochain_joueur(carte)
+                        elif status_instruction == InstructionCheck.DOIT_RECOMMENCER:
+                            joueur.message("Mouvement illégal, veuillez recommencer")
+                        elif status_instruction == InstructionCheck.A_GAGNE:
+                            connexion_ecoute.broadcast(
+                                "Le joueur {} a gagné !".format(
+                                    carte.joueurs.index(carte.joueur_actif) + 1
+                                ),
+                                carte.connexions_des_clients()
+                            )
+                            print("Merci d'avoir joué")
+                            return

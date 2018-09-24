@@ -1,6 +1,7 @@
 import random
 import libs.lib_reseau as lib_res
 
+
 class Joueur:
     def __init__(self, carte):
 
@@ -17,8 +18,6 @@ class Joueur:
 
         self.position = random.choice(list(self.carte.departs_valides()))
 
-        self.buffer = lib_res.Buffer()
-
     def __hash__(self):
         return self.position.index_
 
@@ -30,9 +29,8 @@ class Joueur:
         self.addresse = self.connexion.socket.getpeername()[0]
         self.port = self.connexion.socket.getpeername()[1]
 
-    def deconnecter(self):
-        self.connexion = None
-        self.addresse = None
-        self.port = None
+    def message(self, contenu):
+        self.connexion.envoyer(contenu)
 
-        self.serveur = None
+    def affiche_carte(self):
+        return self.carte.afficher(self.position.index_)
