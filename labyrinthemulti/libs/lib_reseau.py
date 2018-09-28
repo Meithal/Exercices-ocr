@@ -5,6 +5,7 @@
 import socket
 import select
 import traceback
+from typing import List
 
 
 class Connexion:
@@ -14,15 +15,15 @@ class Connexion:
         self.port = port_loc
         self.description = description if description else (addresse_loc, port_loc)
         self.socket = sock
-        if not self.socket:
+        if not sock: # si la connexion vient d'un select.select, le socket existe deja, sinon le créer
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __del__(self):
         """Lorsque cette connexion vient d'un select, on ne peut pas lui associer un context manager.
            Donc on capture notre fermeture lorsque le garbage collector nous supprime. Mais une connexion
            crée via un context manager finira aussi dans le garbage collector donc on appelle self.__bool__
-           pour vérifier que le socket n'est pas déjà fermé"""
-        if self:
+           pour vérifier que le socket n'est pas déjà fermé lors de la sortie du context manager"""
+        if self: # appel à __bool__()
             self.socket.close()
         print("%s supprimée par le ramasse-miettes" % self.description)
 
@@ -37,7 +38,7 @@ class Connexion:
         self.socket.close()
 
     def __bool__(self):
-        """On est "Truthy" lorsque notre connexion est active"""
+        """On est "Truthy" lorsque notre connexion est active, et "Falsy" lorsqu'on est déconnecté"""
         return self.socket.fileno() != -1
 
     def envoyer(self, message):
@@ -46,6 +47,27 @@ class Connexion:
         except Exception as e:
             print(e)
             self.socket.close() # on devient "Falsy"
+
+def clients_a_lire(clients):
+    clients = (_.socket for _ in clients)
+    try:
+        clients_a_lire = select.select((_ for _ in clients), [], [], 0.05)[0]
+    except Exception as e:
+        print("Erreur inhabituelle", type(e), e)
+        raise e
+    else:
+        rv = {}
+        for cli in clients_a_lire:
+            try:
+                rv[cli] = cli.recv(1024)
+            except Exception as e:
+                print("Erreur lors du recv", type(e), e)
+
+        return rv
+
+def broadcast(message, cibles):
+    for connexion in cibles:
+        connexion.envoyer(message + "\n")
 
 
 class ConnexionEnTantQueServeur(Connexion):
@@ -75,7 +97,7 @@ class ConnexionEnTantQueServeur(Connexion):
                 _connexions_demandees = yield
                 for connexion in _connexions_demandees:
                     connexion_avec_client, infos_connexion = connexion.accept()
-                    connexion_obj = ConnexionDepuisClient(
+                    connexion_obj = Connexion(
                         self.addresse,
                         self.port,
                         description="Connexion sortante vers {}".format(connexion_avec_client.getpeername()[1]),
@@ -91,32 +113,6 @@ class ConnexionEnTantQueServeur(Connexion):
                 yield accueille_nouveaux_coro.send(connexions_demandees)
             else:
                 yield None
-
-    def clients_a_lire(self, clients):
-        try:
-            clients_a_lire = select.select((_ for _ in clients), [], [], 0.05)[0]
-        except Exception as e:
-            print("Erreur inhabituelle", type(e), e)
-            raise e
-        else:
-            rv = {}
-            for cli in clients_a_lire:
-                try:
-                    rv[cli] = cli.recv(1024)
-                except Exception as e:
-                    print("Erreur lors du recv", type(e), e)
-
-            return rv
-
-    @staticmethod
-    def broadcast(message, cibles):
-        for connexion in cibles:
-            connexion.envoyer(message + "\n")
-
-
-class ConnexionDepuisClient(Connexion):
-
-    buffer_clavier = ""
 
 
 class ConnexionEnTantQueClient(Connexion):

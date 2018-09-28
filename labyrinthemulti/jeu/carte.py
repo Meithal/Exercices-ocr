@@ -86,15 +86,11 @@ class Carte:
         self.kick_deconnectes()
         return (j.connexion for j in self.joueurs if j.connexion)
 
-    def sockets_des_clients(self):
-        self.kick_deconnectes()
-        return (j.connexion.socket for j in self.joueurs if j.connexion)
-
     def prochain_joueur(self):
         return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]
 
     def joueurs_bavards(self):
-        messages_clients = self.serveur.clients_a_lire(self.sockets_des_clients())
+        messages_clients = self.serveur.clients_a_lire(self.connexions_des_clients())
         if messages_clients:
             for sock, message in messages_clients.items():
                 yield self.joueurs[self.joueurs.index(sock)], message
