@@ -1,5 +1,6 @@
 # Cette librairie encapsule le module socket pour pouvoir envoyer des donnees sans devoir les convertir
 # vers et depuis des bytes, et fournit un context manager pour facilement ouvrir et fermer une connexion.
+# Ainsi qu'une fonction qui facilite l'usage de select.select
 # (c) https://github.com/Meithal 2018
 
 import socket
@@ -15,38 +16,34 @@ class Connexion:
         self.port = port_loc
         self.description = description if description else (addresse_loc, port_loc)
         self.socket = sock
-        if not sock: # si la connexion vient d'un select.select, le socket existe deja, sinon le créer
+        if not sock:  # si la connexion vient d'un select.select, le socket existe deja, sinon le créer
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __del__(self):
-        """Lorsque cette connexion vient d'un select, on ne peut pas lui associer un context manager.
-           Donc on capture notre fermeture lorsque le garbage collector nous supprime. Mais une connexion
-           crée via un context manager finira aussi dans le garbage collector donc on appelle self.__bool__
-           pour vérifier que le socket n'est pas déjà fermé lors de la sortie du context manager"""
-        if self: # appel à __bool__()
-            self.socket.close()
+        """Les sockets renvoyés par select.select n'utilisent pas de context manager, donc seul le ramasse-miette
+           fonctionne ici."""
+        self.socket.close()
         print("%s supprimée par le ramasse-miettes" % self.description)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Concerne les socket qu'on créé nous même, avec 'with'."""
         if exc_type:
             print("Exception inhabituelle : %s" % exc_val)
             traceback.print_tb(exc_tb)
 
         # plutot que d'attendre que la variable associée au bloc 'with' soit récupérée par le garbage collector
-        # ou explicitement 'del', on ferme la connexion dès la sortie du bloc 'with'
+        # ou explicitement 'del', on ferme nous même la connexion dès la sortie du bloc 'with'
         self.socket.close()
-
-    def __bool__(self):
-        """On est "Truthy" lorsque notre connexion est active, et "Falsy" lorsqu'on est déconnecté"""
-        return self.socket.fileno() != -1
 
     def envoyer(self, message):
         try:
             self.socket.send(bytes(message, encoding='utf-8'))
         except Exception as e:
             print(e)
-            self.socket.close() # on devient "Falsy"
+            self.socket.close()
+
+    def est_connecte(self):
+        return self.socket.fileno() != -1
+
 
 def clients_a_lire(clients):
     clients = (_.socket for _ in clients)
@@ -59,15 +56,11 @@ def clients_a_lire(clients):
         rv = {}
         for cli in clients_a_lire:
             try:
-                rv[cli] = cli.recv(1024)
+                rv[cli] = cli.recv(1024).decode("utf-8")
             except Exception as e:
                 print("Erreur lors du recv", type(e), e)
 
         return rv
-
-def broadcast(message, cibles):
-    for connexion in cibles:
-        connexion.envoyer(message + "\n")
 
 
 class ConnexionEnTantQueServeur(Connexion):
@@ -75,9 +68,7 @@ class ConnexionEnTantQueServeur(Connexion):
     def __init__(self, addresse_loc, port_loc, description=''):
         super().__init__(addresse_loc, port_loc, description)
 
-
     def __enter__(self):
-
         self.socket.bind((self.addresse, self.port))
         self.socket.listen(5)
 
@@ -92,25 +83,21 @@ class ConnexionEnTantQueServeur(Connexion):
 
     def nouvelles_connexions(self):
 
-        def coro():
-            while True:
-                _connexions_demandees = yield
-                for connexion in _connexions_demandees:
-                    connexion_avec_client, infos_connexion = connexion.accept()
-                    connexion_obj = Connexion(
-                        self.addresse,
-                        self.port,
-                        description="Connexion sortante vers {}".format(connexion_avec_client.getpeername()[1]),
-                        sock=connexion_avec_client
-                    )
-                    yield connexion_obj
+        def generateur_connexions(connexions):
+            for _connexion in connexions:
+                socket_vers_client, infos_connexion = _connexion.accept()
+                connexion_obj = Connexion(
+                    self.addresse,
+                    self.port,
+                    description="Connexion sortante vers {}".format(socket_vers_client.getpeername()[1]),
+                    sock=socket_vers_client
+                )
+                yield connexion_obj
 
-        accueille_nouveaux_coro = coro()
-        accueille_nouveaux_coro.send(None)
         while True:
             connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
-            if len(connexions_demandees):
-                yield accueille_nouveaux_coro.send(connexions_demandees)
+            for connexion in generateur_connexions(connexions_demandees):
+                yield connexion
             else:
                 yield None
 

@@ -1,5 +1,9 @@
+from typing import Iterator
+
 import jeu.reglages as regles
 import jeu.emplacement as emplacement
+
+from libs import lib_reseau
 
 
 class Carte:
@@ -78,19 +82,19 @@ class Carte:
 
     def kick_deconnectes(self):
         """Kick de la carte les joueurs ayant perdu la connexion"""
-        for joueur in (j for j in self.joueurs if not j.connexion):
+        for joueur in (j for j in self.joueurs if not j.est_connecte()):
             print("Perdu la liaison avec %s" % joueur.port)
             self.joueurs.remove(joueur)
 
-    def connexions_des_clients(self):
+    def connexions_des_clients(self) -> Iterator[lib_reseau.Connexion]:
         self.kick_deconnectes()
-        return (j.connexion for j in self.joueurs if j.connexion)
+        return (j.connexion for j in self.joueurs if j.connexion.est_connecte())
 
     def prochain_joueur(self):
         return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]
 
     def joueurs_bavards(self):
-        messages_clients = self.serveur.clients_a_lire(self.connexions_des_clients())
+        messages_clients = lib_reseau.clients_a_lire(self.connexions_des_clients())
         if messages_clients:
             for sock, message in messages_clients.items():
                 yield self.joueurs[self.joueurs.index(sock)], message

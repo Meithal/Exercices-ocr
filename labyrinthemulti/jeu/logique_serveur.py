@@ -1,5 +1,6 @@
 import os
 import enum
+import random
 
 import jeu.reglages as regles
 from jeu.carte import Carte
@@ -81,8 +82,6 @@ def execute_input(i, ct):
 def serveur():
     """La boucle principale du jeu"""
 
-    import time
-
     cartes = []  # une liste de nom de cartes
 
     print("Veuillez choisir une carte")
@@ -100,48 +99,40 @@ def serveur():
         else:
             print("Ce n'est pas valide")
 
-    carte = Carte(cartes[selected_carte])  # l'instance de Carte où on joue
-
-    print(carte.afficher())
-
     def passer_au_prochain_joueur(ct):
         ct.joueur_actif = ct.prochain_joueur()
-        connexion_ecoute.broadcast(
-            "C'est au joueur {}  de jouer".format(ct.joueurs.index(ct.joueur_actif) + 1),
-            ct.connexions_des_clients()
-        )
-        for jr in ct.joueurs:
-            jr.message(ct.afficher(ct.joueur_actif.position.index_))
+        if ct.joueur_actif is None:
+            ct.joueur_actif = random.choice(ct.joueurs)
+        for conn in ct.connexions_des_clients():
+            conn.envoyer("C'est au joueur {} de jouer".format(ct.joueurs.index(ct.joueur_actif) + 1))
+            conn.envoyer(ct.afficher(ct.joueur_actif.position.index_))
 
     with lib_reseau.ConnexionEnTantQueServeur(
         '',
         regles.PORT_CONNEXION,
         "Connexion principale"
-    ) as connexion_ecoute:
+    ) as serveur:
 
-        if not connexion_ecoute:
+        if not serveur:
             print("Echec de connexion avec le serveur")
             return
 
-        ecouteur_nouvelles_connexions = connexion_ecoute.nouvelles_connexions()
+        carte = Carte(cartes[selected_carte], serveur)  # l'instance de Carte où on joue
+
+        print(carte.afficher())
 
         while True:
 
             if not carte.partie_commencee():
-                nouvelle_connexion = next(ecouteur_nouvelles_connexions)
+                nouvelle_connexion = next(serveur.nouvelles_connexions())
                 if nouvelle_connexion:
                     nouveau_joueur = Joueur(carte)
                     if nouveau_joueur.position:
                         nouveau_joueur.connecter(nouvelle_connexion)
                         print("Nouveau joueur ajouté à la carte sur port {}".format(nouveau_joueur.port))
                         carte.joueurs.append(nouveau_joueur)
-                        carte.joueur_actif = nouveau_joueur
-                        connexion_ecoute.broadcast(
-                            "Bienvenue au nouveau joueur sur le port {}".format(
-                                 nouveau_joueur.port
-                            ),
-                            carte.connexions_des_clients()
-                        )
+                        for c in carte.connexions_des_clients():
+                            c.envoyer("Bienvenue au nouveau joueur sur le port %d" % nouveau_joueur.port)
                         nouveau_joueur.message(nouveau_joueur.affiche_carte())
                     else:
                         print("impossible d'ajouter un nouveau joueur")
@@ -167,11 +158,7 @@ def serveur():
                         elif status_instruction == InstructionCheck.DOIT_RECOMMENCER:
                             joueur.message("Mouvement illégal, veuillez recommencer")
                         elif status_instruction == InstructionCheck.A_GAGNE:
-                            connexion_ecoute.broadcast(
-                                "Le joueur {} a gagné !".format(
-                                    carte.joueurs.index(carte.joueur_actif) + 1
-                                ),
-                                carte.connexions_des_clients()
-                            )
+                            for c in carte.connexions_des_clients():
+                                c.envoyer("Le joueur %d a gagné !" % (carte.joueurs.index(carte.joueur_actif) + 1))
                             print("Merci d'avoir joué")
                             return

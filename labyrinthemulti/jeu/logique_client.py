@@ -52,5 +52,4 @@ def client():
             if not cli_thread.is_alive():
                 print("Liaison avec le serveur perdue.")
                 return
-            print("Ce que vous avez ecrit: " + buffer)
             connexion.envoyer(buffer)

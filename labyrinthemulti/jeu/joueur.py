@@ -29,6 +29,9 @@ class Joueur:
         self.addresse = self.connexion.socket.getpeername()[0]
         self.port = self.connexion.socket.getpeername()[1]
 
+    def est_connecte(self):
+        return self.connexion.est_connecte()
+
     def message(self, contenu):
         self.connexion.envoyer(contenu)
 
