@@ -78,6 +78,8 @@ def execute_input(i, ct):
 
     return InstructionCheck.ACTION_VALIDE
 
+def faire_gagner(joueur):
+    joueur.gagnant = True
 
 def serveur():
     """La boucle principale du jeu"""
@@ -121,7 +123,7 @@ def serveur():
 
         print(carte.afficher())
 
-        while True:
+        while not carte.gagnant():
 
             if not carte.partie_commencee():
                 nouvelle_connexion = next(serveur.nouvelles_connexions())
@@ -132,7 +134,7 @@ def serveur():
                         print("Nouveau joueur ajouté à la carte sur port {}".format(nouveau_joueur.port))
                         carte.joueurs.append(nouveau_joueur)
                         for c in carte.connexions_des_clients():
-                            c.envoyer("Bienvenue au nouveau joueur sur le port %d" % nouveau_joueur.port)
+                            c.envoyer("Bienvenue au nouveau joueur sur le port %d\n" % nouveau_joueur.port)
                         nouveau_joueur.message(nouveau_joueur.affiche_carte())
                     else:
                         print("impossible d'ajouter un nouveau joueur")
@@ -144,21 +146,24 @@ def serveur():
                         if message == regles.CHAINE_COMMENCER:
                             joueur.est_pret = True
                             passer_au_prochain_joueur(carte)
-                    elif joueur is carte.joueur_actif:
-                        status_instruction = execute_input(message, carte)
-                        if status_instruction == InstructionCheck.ACTION_VALIDE:
-                            for __joueur in carte.joueurs:
-                                __joueur.message(
-                                    "Le joueur %d s'est déplacé.\n%s" % (
-                                        carte.joueurs.index(carte.joueur_actif) + 1,
-                                        carte.afficher(__joueur.position.index_)
+                    else:
+                        if joueur is carte.joueur_actif:
+                            status_instruction = execute_input(message, carte)
+                            if status_instruction == InstructionCheck.ACTION_VALIDE:
+                                for __joueur in carte.joueurs:
+                                    __joueur.message(
+                                        "Le joueur %d s'est déplacé.\n%s" % (
+                                            carte.joueurs.index(carte.joueur_actif) + 1,
+                                            carte.afficher(__joueur.position.index_)
+                                        )
                                     )
-                                )
-                            passer_au_prochain_joueur(carte)
-                        elif status_instruction == InstructionCheck.DOIT_RECOMMENCER:
-                            joueur.message("Mouvement illégal, veuillez recommencer")
-                        elif status_instruction == InstructionCheck.A_GAGNE:
-                            for c in carte.connexions_des_clients():
-                                c.envoyer("Le joueur %d a gagné !" % (carte.joueurs.index(carte.joueur_actif) + 1))
-                            print("Merci d'avoir joué")
-                            return
+                                passer_au_prochain_joueur(carte)
+                            elif status_instruction == InstructionCheck.DOIT_RECOMMENCER:
+                                joueur.message("Mouvement illégal, veuillez recommencer")
+                            elif status_instruction == InstructionCheck.A_GAGNE:
+                                carte.joueur_actif.gagnant = True
+
+        for c in carte.connexions_des_clients():
+            c.envoyer("Le joueur %d a gagné !" % (carte.joueurs.index(carte.joueur_actif) + 1))
+
+    print("Merci d'avoir joué")

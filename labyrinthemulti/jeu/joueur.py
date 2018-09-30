@@ -15,6 +15,7 @@ class Joueur:
         self.position = None
 
         self.est_pret = False
+        self.gagnant = False
 
         self.position = random.choice(list(self.carte.departs_valides()))
 

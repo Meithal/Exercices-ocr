@@ -98,3 +98,6 @@ class Carte:
         if messages_clients:
             for sock, message in messages_clients.items():
                 yield self.joueurs[self.joueurs.index(sock)], message
+
+    def gagnant(self):
+        return any(joueur.gagnant for joueur in self.joueurs)
