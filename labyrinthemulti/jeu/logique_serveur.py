@@ -101,14 +101,6 @@ def serveur():
         else:
             print("Ce n'est pas valide")
 
-    def passer_au_prochain_joueur(ct):
-        ct.joueur_actif = ct.prochain_joueur()
-        if ct.joueur_actif is None:
-            ct.joueur_actif = random.choice(ct.joueurs)
-        for conn in ct.connexions_des_clients():
-            conn.envoyer("C'est au joueur {} de jouer".format(ct.joueurs.index(ct.joueur_actif) + 1))
-            conn.envoyer(ct.afficher(ct.joueur_actif.position.index_))
-
     with lib_reseau.ConnexionEnTantQueServeur(
         '',
         regles.PORT_CONNEXION,

@@ -91,7 +91,7 @@ class Carte:
         return (j.connexion for j in self.joueurs if j.connexion.est_connecte())
 
     def prochain_joueur(self):
-        return self.joueurs[(self.joueurs.index(self.joueur_actif) + 1) % len(self.joueurs)]
+        return next(self.joueurs)
 
     def joueurs_bavards(self):
         messages_clients = lib_reseau.clients_a_lire(self.connexions_des_clients())
