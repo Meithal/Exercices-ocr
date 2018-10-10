@@ -25,7 +25,6 @@ class Connexion:
         """Les sockets renvoyés par select.select n'utilisent pas de context manager, donc seul le ramasse-miette
            fonctionne ici."""
         self.stop()
-        print("%s supprimée par le ramasse-miettes" % self.description)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:

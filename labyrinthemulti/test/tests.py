@@ -21,13 +21,13 @@ class TestEnvironment(unittest.TestCase):
             "Python 3.5 minimum is required, you currently have Python 3.%d" % sys.version_info.minor
         )
 
-    # def test_platform(self):
-    #     self.assertIn(
-    #         'win',
-    #         sys.platform,
-    #         "This game has been made and tested on windows only, no guarantee it "
-    #         "will work on other platforms (but if all tests pass, we can assume the game will work)"
-    #     )
+    def test_platform(self):
+        self.assertIn(
+            'win',
+            sys.platform,
+            "This game has been made and tested on windows only, feel free to remove this test "
+            "if the game actually works on linux/mac"
+        )
 
 
 def start_client(wait_lock: threading.Event):
@@ -52,7 +52,7 @@ class TestConnection(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if os.getcwd().endswith("test"):
+        if os.getcwd().endswith("test"):  # When runing automatic testing, getcwd will not be at root
             os.chdir("..")
         cls._server = make_server()
 
