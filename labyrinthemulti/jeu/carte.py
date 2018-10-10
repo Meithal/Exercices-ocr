@@ -43,11 +43,12 @@ class Carte:
         self.serveur = serveur
         self.joueurs = []
         self.joueur_actif = None
+        self.cycle_joueurs = self.prochain_joueur()
 
     def partie_commencee(self):
         return any([joueur.est_pret for joueur in self.joueurs])
 
-    def afficher(self, pos_joueur = -1):
+    def afficher(self, pos_joueur: int = -1):
         """
         Affiche la carte, saute une ligne quand on a affiché un nombre de caractères équivalent  une ligne
         :return: string
@@ -79,12 +80,6 @@ class Carte:
         for emplacement in self.emplacements:
             if emplacement.est_valide() and emplacement not in self.positions_occupees():
                 yield emplacement
-
-    def kick_deconnectes(self):
-        """Kick de la carte les joueurs ayant perdu la connexion"""
-        for joueur in (j for j in self.joueurs if not j.est_connecte()):
-            print("Perdu la liaison avec %s" % joueur.port)
-            self.joueurs.remove(joueur)
 
     def connexions_des_clients(self) -> Iterator[lib_reseau.Connexion]:
         return (j.connexion for j in self.joueurs if j.connexion.est_connecte())

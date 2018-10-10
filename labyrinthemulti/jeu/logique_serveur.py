@@ -13,6 +13,7 @@ class Instruction(enum.Enum):
     percer = 2
     murer = 3
 
+
 def dechiffre_input(chaine):
     """
     Dechiffre une requete de type "n4", "pe" vers un tuple décrivant l'action,
@@ -49,56 +50,49 @@ def dechiffre_input(chaine):
     return instruction, direction, repetitions, valide
 
 
-def execute_input(chaine, ct):
+def execute_input(chaine, carte):
     """
     Modifie l'état du jeu en fonction de l'input demandé
-    :param ct: La carte
+    :param carte: La carte
     :param chaine: une chaine de caractères demandée par le joueur
               les formats valides sont "n/s/e/o(2-9)"
               "pn/s/e/o" ou "mn/s/e/o"
-    :return: Un Tuple contenant la validité de l'instruction,
+    :return: Un Tuple contenant la validité de l'instruction, si faux le joueur peut en demander une nouvelle
              un Emplacement cible,
              un contenu (None si l'emplacement n'est pas altéré) et
-             l'instruction (On saura quoi faire avec la cible)
+             l'instruction (On saura si on doit se deplacer sur la cible)
     """
 
     instruction, direction, repetitions, valide = dechiffre_input(chaine)
 
     contenu = None
+    cible = carte.emplacements[carte.joueur_actif.position.index_]
 
     for step in range(repetitions):  # on répete le deplacement autant de fois que demande
 
-        destination = {
-            'n': ct.joueur_actif.position.index_ - ct.taille_ligne,
-            's': ct.joueur_actif.position.index_ + ct.taille_ligne,
-            'e': ct.joueur_actif.position.index_ + 1,
-            'o': ct.joueur_actif.position.index_ - 1
-        }[direction]  # en fonction de la direction demandée, la destination sera differente
+        destination = carte.emplacements[{
+            'n': cible.index_ - carte.taille_ligne,
+            's': cible.index_ + carte.taille_ligne,
+            'e': cible.index_ + 1,
+            'o': cible.index_ - 1
+        }[direction]]  # en fonction de la direction demandée, la destination sera differente
 
-        cible = ct.emplacements[destination]
+        if instruction is Instruction.deplacer:
+            if not destination.est_valide(depuis=carte.joueur_actif.position):
+                break  # si on cogne contre un mur, le tour se finit
 
         if instruction in {Instruction.murer, Instruction.percer}:
 
-            if cible.contenu not in {regles.CARACTERE_MUR, regles.CARACTERE_PORTE}:
+            if destination.contenu not in {regles.CARACTERE_MUR, regles.CARACTERE_PORTE}:
                 valide = False
                 break
 
-            if instruction == Instruction.murer:
+            if instruction is Instruction.murer:
                 contenu = regles.CARACTERE_MUR
-            elif instruction == Instruction.percer:
+            elif instruction is Instruction.percer:
                 contenu = regles.CARACTERE_PORTE
-            break
 
-        if not cible.est_valide(depuis=ct.joueur_actif.position):
-            break  # si on cogne contre un mur, le tour se finit
-
-        # if cible.fait_gagner():
-        #     return InstructionCheck.A_GAGNE
-
-        # ct.joueur_actif.position = cible  # l'état du jeu est modifié ici
-
-        # if step < repetitions - 1:
-        #     ct.afficher()  # on affiche les déplacements intermédiaires
+        cible = destination
 
     return valide, cible, contenu, instruction
 
@@ -147,36 +141,55 @@ def serveur():
                         nouveau_joueur.connecter(nouvelle_connexion)
                         print("Nouveau joueur ajouté à la carte sur port {}".format(nouveau_joueur.port))
                         carte.joueurs.append(nouveau_joueur)
-                        for c in carte.connexions_des_clients():
-                            c.envoyer("Bienvenue au nouveau joueur sur le port %d\n" % nouveau_joueur.port)
+                        broadcast(carte, "Bienvenue au nouveau joueur sur le port %d\n" % nouveau_joueur.port)
                         nouveau_joueur.message(nouveau_joueur.affiche_carte())
+
                     else:
                         print("impossible d'ajouter un nouveau joueur")
 
-            if carte.joueurs:
-                for joueur, message in carte.joueurs_bavards():
-                    print(joueur.port, ": ", message)
-                    if message == "ERROR":
-                        carte.joueurs.remove(joueur)
-                        continue
-                    if not carte.partie_commencee():
-                        if message == regles.CHAINE_COMMENCER:
-                            joueur.est_pret = True
-                            carte.joueur_actif = carte.prochain_joueur()
-                    elif joueur is carte.joueur_actif:
-                        valide, cible, contenu, instruction = execute_input(message, carte)
-                        if valide:
-                            if contenu:
-                                cible.contenu = contenu
-                            if instruction == Instruction.deplacer:
-                                joueur.position = cible
+            for joueur, message in carte.joueurs_bavards():
+                print(joueur.port, ": ", message)
+                if message == lib_reseau.ConnexionPerdue:
+                    carte.joueurs.remove(joueur)
+                    broadcast(carte, "Nous avons perdu la connexion avec le joueur %d" % joueur.numero())
+                if not carte.partie_commencee():
+                    if message == regles.CHAINE_COMMENCER:
+                        joueur.est_pret = True
+                        carte.joueur_actif = passer_au_joueur(carte, joueur)
+                        broadcast(carte, "La partie commence, c'est au joueur %d de jouer" % carte.joueur_actif.numero())
+                elif joueur is carte.joueur_actif:
 
-                            carte.joueur_actif = carte.prochain_joueur()
-                        else:
-                            joueur.message("Mouvement illégal, veuillez recommencer")
+                    valide, cible, contenu, instruction = execute_input(message, carte)
 
+                    if valide:
                         if cible.fait_gagner():
-                            for c in carte.connexions_des_clients():
-                                c.envoyer("Le joueur %d a gagné !" % (carte.joueurs.index(carte.joueur_actif) + 1))
-                            print("Merci d'avoir joué")
-                            return
+                            joueur.gagnant = True
+                            broadcast(carte, "Le joueur %d a gagné !" % joueur.numero())
+                            continue
+
+                        joueur.message("Mouvement valide, fin de votre tour")
+                        if contenu:
+                            cible.contenu = contenu
+                        if instruction is Instruction.deplacer:
+                            joueur.position = cible
+
+                        carte.joueur_actif = passer_au_joueur(carte, next(carte.cycle_joueurs))
+                    else:
+                        joueur.message("Mouvement illégal, veuillez recommencer")
+                        joueur.message(carte.afficher(joueur.position.index_))
+
+        print("Merci d'avoir joué")
+        return
+
+
+def passer_au_joueur(carte, joueur):
+    """Effectue quelques effets de bord lors du changement de joueur, comme l'envoi de notifications"""
+    joueur.message("C'est à vous de jouer")
+    joueur.message(carte.afficher(joueur.position.index_))
+    return joueur
+
+
+def broadcast(carte, message):
+    """Envoye le même message à tous les joueurs connectés"""
+    for joueur in carte.joueurs:
+        joueur.message(message)

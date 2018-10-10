@@ -34,7 +34,10 @@ class Joueur:
         return self.connexion.est_connecte()
 
     def message(self, contenu):
-        self.connexion.envoyer(contenu)
+        self.connexion.envoyer(contenu + '\n')
 
     def affiche_carte(self):
         return self.carte.afficher(self.position.index_)
+
+    def numero(self):
+        return self.carte.joueurs.index(self) + 1

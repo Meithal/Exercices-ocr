@@ -6,7 +6,9 @@
 import socket
 import select
 import traceback
-from typing import List
+from typing import Iterator
+
+ConnexionPerdue = "***LOST_CONNECTION***"
 
 
 class Connexion:
@@ -45,20 +47,19 @@ class Connexion:
         return self.socket.fileno() != -1
 
 
-def clients_a_lire(clients):
-    clients = (_.socket for _ in clients)
+def clients_a_lire(clients: Iterator[Connexion]):
     try:
-        clients_a_lire = select.select((_ for _ in clients), [], [], 0.05)[0]
+        clients_a_lire = select.select((_.socket for _ in clients), [], [], 0.05)[0]
     except Exception as e:
-        print("Erreur inhabituelle", type(e), e)
-        raise e
+        # print("Erreur inhabituelle", type(e), e)
+        return
     else:
         for cli in clients_a_lire:
             try:
                 yield cli, cli.recv(1024).decode("utf-8")
             except Exception as e:
                 print("Erreur lors du recv", type(e), e)
-                yield cli, "ERROR"
+                yield cli, ConnexionPerdue
 
 
 class ConnexionEnTantQueServeur(Connexion):
