@@ -78,7 +78,7 @@ class Carte:
 
     def departs_valides(self):
         for emplacement in self.emplacements:
-            if emplacement.est_valide() and emplacement not in self.positions_occupees():
+            if emplacement.contenu not in regles.IMPOSSIBLE_STARTING_CHARS and emplacement not in self.positions_occupees():
                 yield emplacement
 
     def connexions_des_clients(self) -> Iterator[lib_reseau.Connexion]:

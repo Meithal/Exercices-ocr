@@ -66,19 +66,24 @@ def execute_input(chaine, carte):
     instruction, direction, repetitions, valide = dechiffre_input(chaine)
 
     contenu = None
-    cible = carte.emplacements[carte.joueur_actif.position.index_]
+    etape = carte.emplacements[carte.joueur_actif.position.index_]
 
     for step in range(repetitions):  # on répete le deplacement autant de fois que demande
 
-        destination = carte.emplacements[{
-            'n': cible.index_ - carte.taille_ligne,
-            's': cible.index_ + carte.taille_ligne,
-            'e': cible.index_ + 1,
-            'o': cible.index_ - 1
-        }[direction]]  # en fonction de la direction demandée, la destination sera differente
+        destination = {
+            'n': etape.index_ - carte.taille_ligne,
+            's': etape.index_ + carte.taille_ligne,
+            'e': etape.index_ + 1,
+            'o': etape.index_ - 1
+        }[direction]  # en fonction de la direction demandée, la destination sera differente
+
+        if destination not in range(len(carte.emplacements)):
+            break
+
+        destination = carte.emplacements[destination]
 
         if instruction is Instruction.deplacer:
-            if not destination.est_valide(depuis=carte.joueur_actif.position):
+            if not destination.est_valide(depuis=etape):
                 break  # si on cogne contre un mur, le tour se finit
 
         if instruction in {Instruction.murer, Instruction.percer}:
@@ -92,9 +97,9 @@ def execute_input(chaine, carte):
             elif instruction is Instruction.percer:
                 contenu = regles.CARACTERE_PORTE
 
-        cible = destination
+        etape = destination
 
-    return valide, cible, contenu, instruction
+    return valide, etape, contenu, instruction
 
 
 def serveur():
@@ -150,8 +155,8 @@ def serveur():
             for joueur, message in carte.joueurs_bavards():
                 print(joueur.port, ": ", message)
                 if message == lib_reseau.ConnexionPerdue:
-                    carte.joueurs.remove(joueur)
                     broadcast(carte, "Nous avons perdu la connexion avec le joueur %d" % joueur.numero())
+                    carte.joueurs.remove(joueur)
                 if not carte.partie_commencee():
                     if message == regles.CHAINE_COMMENCER:
                         joueur.est_pret = True
