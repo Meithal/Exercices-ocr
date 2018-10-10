@@ -1,6 +1,5 @@
-import os
 import enum
-import random
+import os
 
 import jeu.reglages as regles
 from jeu.carte import Carte
@@ -24,6 +23,7 @@ def dechiffre_input(chaine):
 
     chaine = chaine[:regles.LONGUEUR_MAX_INPUT].strip().lower()
     valide = True
+    direction = ''
 
     if not chaine:
         valide = False
@@ -36,7 +36,8 @@ def dechiffre_input(chaine):
     if instruction in {Instruction.percer, Instruction.murer}:
         if len(chaine) != 2:
             valide = False
-        direction = chaine[1]
+        else:
+            direction = chaine[1]
     else:
         direction = chaine[0]
 
@@ -67,6 +68,9 @@ def execute_input(chaine, carte):
 
     contenu = None
     etape = carte.emplacements[carte.joueur_actif.position.index_]
+
+    if not valide:
+        repetitions = 0
 
     for step in range(repetitions):  # on répete le deplacement autant de fois que demande
 
@@ -188,7 +192,7 @@ def serveur():
 
 
 def passer_au_joueur(carte, joueur):
-    """Effectue quelques effets de bord lors du changement de joueur, comme l'envoi de notifications"""
+    """Envoi des notifications lorsqu'on veut changer de joueur"""
     joueur.message("C'est à vous de jouer")
     joueur.message(carte.afficher(joueur.position.index_))
     return joueur

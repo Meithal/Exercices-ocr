@@ -1,4 +1,4 @@
-import jeu
+import jeu.reglages
 
 
 class Emplacement:
@@ -12,7 +12,8 @@ class Emplacement:
         Definit x et y dans la quadrillage, conserve l'index
 
         :param index_: la position au sein du flux de la carte.
-        :param taille_ligne: utilisé comme modulo pour trouver la ligne et la colonne
+        :param contenu: le caractère du fichier texte
+        :param carte: l'objet carte parent
         """
         self.index_ = index_
         self.carte = carte
@@ -46,6 +47,5 @@ class Emplacement:
         if self.contenu in jeu.reglages.VICTORY_CHARS:
             return True
         return False
-
 
     # On peut rajouter d'autres fonctions ici comme "fait changer d'étage"
