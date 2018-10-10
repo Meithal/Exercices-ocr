@@ -87,17 +87,16 @@ class Carte:
             self.joueurs.remove(joueur)
 
     def connexions_des_clients(self) -> Iterator[lib_reseau.Connexion]:
-        self.kick_deconnectes()
         return (j.connexion for j in self.joueurs if j.connexion.est_connecte())
 
     def prochain_joueur(self):
-        return next(self.joueurs)
+        while True:
+            for joueur in self.joueurs:
+                yield joueur
 
     def joueurs_bavards(self):
-        messages_clients = lib_reseau.clients_a_lire(self.connexions_des_clients())
-        if messages_clients:
-            for sock, message in messages_clients.items():
-                yield self.joueurs[self.joueurs.index(sock)], message
+        for sock, message in lib_reseau.clients_a_lire(self.connexions_des_clients()):
+            yield self.joueurs[self.joueurs.index(sock)], message
 
     def gagnant(self):
         return any(joueur.gagnant for joueur in self.joueurs)

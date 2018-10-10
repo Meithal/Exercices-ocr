@@ -53,14 +53,12 @@ def clients_a_lire(clients):
         print("Erreur inhabituelle", type(e), e)
         raise e
     else:
-        rv = {}
         for cli in clients_a_lire:
             try:
-                rv[cli] = cli.recv(1024).decode("utf-8")
+                yield cli, cli.recv(1024).decode("utf-8")
             except Exception as e:
                 print("Erreur lors du recv", type(e), e)
-
-        return rv
+                yield cli, "ERROR"
 
 
 class ConnexionEnTantQueServeur(Connexion):
