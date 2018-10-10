@@ -1,5 +1,4 @@
 import random
-import libs.lib_reseau as lib_res
 
 
 class Joueur:

@@ -22,14 +22,13 @@ class Carte:
         Une fois l'index numérique du joueur trouvé, le remplace par un objet Emplacement
 
         :param nom: nom de la carte qu'on utilisera dans la fichier de sauvegarde.
-        :param place_joueur: si supérieur à 0, force à celà l'emplacement du joueur, sinon
-        la position du joueur sera celle par défaut. Permet de reprendre une partie en cours.
+        :param serveur: Le serveur qui gère cette carte
         """
 
         with open('cartes/' + nom) as texte:
             self.flux = texte.read()
         self.nom = nom
-        self.taille_ligne = len(self.flux.splitlines()[0].strip())
+        self.taille_ligne = len(self.flux.splitlines()[0].replace('\n', '').replace('\r', ''))
         self.flux = self.flux.replace('\n', '').replace('\r', '').strip()
         self.position_par_defaut = self.flux.index(regles.CARACTERE_JOUEUR)
         self.flux = self.flux.replace(regles.CARACTERE_JOUEUR, ' ')
@@ -77,9 +76,10 @@ class Carte:
             yield joueur.position
 
     def departs_valides(self):
-        for emplacement in self.emplacements:
-            if emplacement.contenu not in regles.IMPOSSIBLE_STARTING_CHARS and emplacement not in self.positions_occupees():
-                yield emplacement
+        for _emplacement in self.emplacements:
+            if _emplacement.contenu not in regles.IMPOSSIBLE_STARTING_CHARS \
+                    and _emplacement not in self.positions_occupees():
+                yield _emplacement
 
     def connexions_des_clients(self) -> Iterator[lib_reseau.Connexion]:
         return (j.connexion for j in self.joueurs if j.connexion.est_connecte())

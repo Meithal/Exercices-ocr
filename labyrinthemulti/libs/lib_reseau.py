@@ -24,7 +24,7 @@ class Connexion:
     def __del__(self):
         """Les sockets renvoyés par select.select n'utilisent pas de context manager, donc seul le ramasse-miette
            fonctionne ici."""
-        self.socket.close()
+        self.stop()
         print("%s supprimée par le ramasse-miettes" % self.description)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -32,29 +32,32 @@ class Connexion:
             print("Exception inhabituelle : %s" % exc_val)
             traceback.print_tb(exc_tb)
 
-        # plutot que d'attendre que la variable associée au bloc 'with' soit récupérée par le garbage collector
-        # ou explicitement 'del', on ferme nous même la connexion dès la sortie du bloc 'with'
-        self.socket.close()
+        self.stop()
+
+    def stop(self):
+        if self.est_connecte():
+            self.socket.close()
 
     def envoyer(self, message):
         try:
             self.socket.send(bytes(message, encoding='utf-8'))
         except Exception as e:
             print(e)
-            self.socket.close()
+            self.stop()
 
     def est_connecte(self):
         return self.socket.fileno() != -1
 
 
 def clients_a_lire(clients: Iterator[Connexion]):
+    # noinspection PyBroadException
     try:
-        clients_a_lire = select.select((_.socket for _ in clients), [], [], 0.05)[0]
-    except Exception as e:
+        clients = select.select((_.socket for _ in clients), [], [], 0.05)[0]
+    except Exception:
         # print("Erreur inhabituelle", type(e), e)
         return
     else:
-        for cli in clients_a_lire:
+        for cli in clients:
             try:
                 yield cli, cli.recv(1024).decode("utf-8")
             except Exception as e:
@@ -67,10 +70,19 @@ class ConnexionEnTantQueServeur(Connexion):
     def __init__(self, addresse_loc, port_loc, description=''):
         super().__init__(addresse_loc, port_loc, description)
 
-    def __enter__(self):
+    def start(self):
+        """Démarre le serveur sans passer par un context manager, nécessaire pour les tests"""
         self.socket.bind((self.addresse, self.port))
         self.socket.listen(5)
 
+        return self
+
+    def stop(self):
+        """Arrête le serveur sans passer par un context manager, nécessaire pour les tests"""
+        super().stop()
+
+    def __enter__(self):
+        self.start()
         print("Le serveur écoute sur le port {}".format(self.port))
 
         return self
@@ -107,6 +119,16 @@ class ConnexionEnTantQueClient(Connexion):
         super().__init__(addresse_loc, port_loc, description)
         self.contenu_a_afficher = Buffer()
         self.attend_entree = True
+
+    def start(self):
+        """Démarre la station cliente sans passer par un context manager, nécessaire pour les tests"""
+        self.__enter__()
+
+        return self
+
+    def stop(self):
+        """Arrête la station cliente sans passer par un context manager, nécessaire pour les tests"""
+        super().stop()
 
     def __enter__(self):
 

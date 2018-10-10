@@ -130,20 +130,20 @@ def serveur():
         '',
         regles.PORT_CONNEXION,
         "Connexion principale"
-    ) as serveur:
+    ) as cx_serveur:
 
-        if not serveur:
+        if not cx_serveur:
             print("Echec de connexion avec le serveur")
             return
 
-        carte = Carte(cartes[selected_carte], serveur)  # l'instance de Carte où on joue
+        carte = Carte(cartes[selected_carte], cx_serveur)  # l'instance de Carte où on joue
 
         print(carte.afficher())
 
         while not carte.gagnant():
 
             if not carte.partie_commencee():
-                nouvelle_connexion = next(serveur.nouvelles_connexions())
+                nouvelle_connexion = next(cx_serveur.nouvelles_connexions())
                 if nouvelle_connexion:
                     nouveau_joueur = Joueur(carte)
                     if nouveau_joueur.position:
@@ -165,7 +165,9 @@ def serveur():
                     if message == regles.CHAINE_COMMENCER:
                         joueur.est_pret = True
                         carte.joueur_actif = passer_au_joueur(carte, joueur)
-                        broadcast(carte, "La partie commence, c'est au joueur %d de jouer" % carte.joueur_actif.numero())
+                        broadcast(
+                            carte, "La partie commence, c'est au joueur %d de jouer" % carte.joueur_actif.numero()
+                        )
                 elif joueur is carte.joueur_actif:
 
                     valide, cible, contenu, instruction = execute_input(message, carte)

@@ -1,4 +1,4 @@
-import jeu.reglages
+import jeu.reglages as regles
 
 
 class Emplacement:
@@ -17,7 +17,8 @@ class Emplacement:
         """
         self.index_ = index_
         self.carte = carte
-        self.ligne, self.colonne = divmod(index_, carte.taille_ligne)  # equivalent a (index // taille_ligne, index_ % taille_ligne)
+        self.ligne, self.colonne = divmod(index_, carte.taille_ligne)
+        # equivalent a (index // taille_ligne, index_ % taille_ligne)
         self.contenu = contenu
 
     def est_valide(self, depuis=None):
@@ -38,13 +39,13 @@ class Emplacement:
 
     def bloque(self):
         """Cet emplacement contient un caractère bloquant."""
-        if self.contenu in jeu.reglages.BLOCKING_CHARS:
+        if self.contenu in regles.BLOCKING_CHARS:
             return True
         return False
 
     def fait_gagner(self):
         """Cet emplacement contient un caractère qui fait gagner."""
-        if self.contenu in jeu.reglages.VICTORY_CHARS:
+        if self.contenu in regles.VICTORY_CHARS:
             return True
         return False
 
