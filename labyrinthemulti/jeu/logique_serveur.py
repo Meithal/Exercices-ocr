@@ -106,9 +106,24 @@ def execute_input(chaine, carte):
     return valide, etape, contenu, instruction
 
 
-def serveur():
-    """La boucle principale du jeu"""
+def passer_au_joueur(carte, joueur):
+    """Envoi des notifications lorsqu'on veut changer de joueur"""
+    joueur.message("C'est à vous de jouer")
+    joueur.message(carte.afficher(joueur.position.index_))
+    return joueur
 
+
+def broadcast(carte, message):
+    """Envoye le même message à tous les joueurs connectés"""
+    for joueur in carte.joueurs:
+        joueur.message(message)
+
+
+def demander_carte():
+    """
+    Demande au joueur de choisir une carte
+    :return: Un nom de fichier correspondant compatible avec le constructeur de jeu.carte.Carte
+    """
     cartes = []  # une liste de nom de cartes
 
     print("Veuillez choisir une carte")
@@ -126,6 +141,12 @@ def serveur():
         else:
             print("Ce n'est pas valide")
 
+    return cartes[selected_carte]
+
+
+def serveur():
+    """La boucle principale du jeu"""
+
     with lib_reseau.ConnexionEnTantQueServeur(
         '',
         regles.PORT_CONNEXION,
@@ -136,7 +157,7 @@ def serveur():
             print("Echec de connexion avec le serveur")
             return
 
-        carte = Carte(cartes[selected_carte], cx_serveur)  # l'instance de Carte où on joue
+        carte = Carte(demander_carte(), cx_serveur)  # l'instance de Carte où on joue
 
         print(carte.afficher())
 
@@ -192,15 +213,3 @@ def serveur():
         print("Merci d'avoir joué")
         return
 
-
-def passer_au_joueur(carte, joueur):
-    """Envoi des notifications lorsqu'on veut changer de joueur"""
-    joueur.message("C'est à vous de jouer")
-    joueur.message(carte.afficher(joueur.position.index_))
-    return joueur
-
-
-def broadcast(carte, message):
-    """Envoye le même message à tous les joueurs connectés"""
-    for joueur in carte.joueurs:
-        joueur.message(message)
