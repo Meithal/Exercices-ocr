@@ -69,6 +69,8 @@ class ConnexionEnTantQueServeur(Connexion):
     def __init__(self, addresse_loc, port_loc, description=''):
         super().__init__(addresse_loc, port_loc, description)
 
+        self.nouvelles_connexions = self._nouvelles_connexions_gen()
+
     def start(self):
         """Démarre le serveur sans passer par un context manager, nécessaire pour les tests"""
         self.socket.bind((self.addresse, self.port))
@@ -91,7 +93,7 @@ class ConnexionEnTantQueServeur(Connexion):
 
         super().__exit__(type_exception, valeur_exception, traceback_exception)
 
-    def nouvelles_connexions(self):
+    def _nouvelles_connexions_gen(self):
 
         def generateur_connexions(connexions):
             for _connexion in connexions:
@@ -108,8 +110,7 @@ class ConnexionEnTantQueServeur(Connexion):
             connexions_demandees, wlist, xlist = select.select([self.socket], [], [], 0.05)
             for connexion in generateur_connexions(connexions_demandees):
                 yield connexion
-            else:
-                yield None
+            yield from []
 
 
 class ConnexionEnTantQueClient(Connexion):
@@ -120,13 +121,13 @@ class ConnexionEnTantQueClient(Connexion):
         self.attend_entree = True
 
     def start(self):
-        """Démarre la station cliente sans passer par un context manager, nécessaire pour les tests"""
+        """Démarre le client sans passer par un context manager, nécessaire pour les tests"""
         self.__enter__()
 
         return self
 
     def stop(self):
-        """Arrête la station cliente sans passer par un context manager, nécessaire pour les tests"""
+        """Arrête le client sans passer par un context manager, nécessaire pour les tests"""
         super().stop()
 
     def __enter__(self):

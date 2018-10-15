@@ -163,9 +163,8 @@ def serveur():
 
         while not carte.gagnant():
 
-            if not carte.partie_commencee():
-                nouvelle_connexion = next(cx_serveur.nouvelles_connexions())
-                if nouvelle_connexion:
+            for nouvelle_connexion in cx_serveur.nouvelles_connexions:
+                if not carte.partie_commencee():
                     nouveau_joueur = Joueur(carte)
                     if nouveau_joueur.position:
                         nouveau_joueur.connecter(nouvelle_connexion)
@@ -196,7 +195,6 @@ def serveur():
                     if valide:
                         if cible.fait_gagner():
                             joueur.gagnant = True
-                            broadcast(carte, "Le joueur %d a gagné !" % joueur.numero())
                             continue
 
                         joueur.message("Mouvement valide, fin de votre tour")
@@ -209,6 +207,8 @@ def serveur():
                     else:
                         joueur.message("Mouvement illégal, veuillez recommencer")
                         joueur.message(carte.afficher(joueur.position.index_))
+
+        broadcast(carte, "Le joueur %d a gagné !" % joueur.numero())
 
         print("Merci d'avoir joué")
         return
